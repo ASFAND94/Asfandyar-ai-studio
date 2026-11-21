@@ -1,37 +1,125 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer"><title>Asfandyar AI Studio</title>
-<link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#080b16">
+<meta name="description" content="Private owner workspace for content, social accounts, SEO and marketing analytics.">
+<title>Asfandyar AI Studio — Owner Workspace</title>
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
 </head>
-<body><main class="shell">
-<header class="top"><div><p class="eyebrow">PRIVATE DIGITAL MARKETING WORKSPACE</p><h1>Asfandyar AI Studio</h1><p class="muted">One control center for your website, content and social accounts.</p></div><span class="lock">OWNER ONLY</span></header>
-<section id="auth-panel" class="panel auth"><h2 id="auth-title">Secure sign in</h2><p id="auth-note" class="muted">Private owner workspace.</p>
-<form id="setup-form" class="stack hidden"><label>One-time setup key<input name="setup_key" type="password" minlength="20" required autocomplete="off"></label><label>Owner username<input name="username" minlength="3" maxlength="80" required></label><label>Password (minimum 12 characters)<input name="password" type="password" minlength="12" required></label><button>Create owner account</button></form>
-<form id="login-form" class="stack hidden"><label>Username<input name="username" required autocomplete="username"></label><label>Password<input name="password" type="password" required autocomplete="current-password"></label><button>Sign in</button></form><p id="auth-message" class="message" role="status"></p></section>
+<body>
+<main class="shell">
+<header class="top">
+  <div>
+    <p class="eyebrow">PRIVATE DIGITAL MARKETING WORKSPACE</p>
+    <h1>Asfandyar AI Studio</h1>
+    <p class="muted">One intelligent workspace for your website, content and social presence.</p>
+  </div>
+  <span class="lock">OWNER ONLY</span>
+</header>
+
+<section id="auth-panel" class="panel auth">
+  <div class="auth-mark" aria-hidden="true">✦</div>
+  <p class="eyebrow">YOUR PRIVATE COMMAND CENTER</p>
+  <h2 id="auth-title">Secure sign in</h2>
+  <p id="auth-note" class="muted">Private owner workspace.</p>
+  <form id="setup-form" class="stack hidden">
+    <label>One-time setup key<input name="setup_key" type="password" minlength="20" required autocomplete="off"></label>
+    <label>Owner username<input name="username" minlength="3" maxlength="80" required autocomplete="username"></label>
+    <label>Password (minimum 12 characters)<input name="password" type="password" minlength="12" required autocomplete="new-password"></label>
+    <button>Create owner account <span aria-hidden="true">→</span></button>
+  </form>
+  <form id="login-form" class="stack hidden">
+    <label>Username<input name="username" required autocomplete="username"></label>
+    <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
+    <button>Unlock workspace <span aria-hidden="true">→</span></button>
+  </form>
+  <p id="auth-message" class="message" role="status" aria-live="polite"></p>
+  <p class="auth-foot">🔒 Your workspace is private. Never share your password or setup key.</p>
+</section>
+
 <section id="dashboard" class="hidden">
-<div class="welcome panel"><div><p class="eyebrow">CONTROL CENTER</p><h2>Welcome back, owner</h2><p class="muted">Publishing is OFF by default. Nothing is sent to social platforms automatically.</p></div><button id="logout" class="secondary">Log out</button></div>
-<nav class="tabs"><button class="tab active" data-tab="accounts">Social accounts</button><button class="tab" data-tab="content">Content studio</button><button class="tab" data-tab="growth">SEO & campaigns</button><button class="tab" data-tab="analytics">Analytics</button><button class="tab" data-tab="security">Security</button></nav>
-<section class="tab-panel" id="tab-accounts">
-<div class="panel"><h2>Global publishing controls</h2><div class="inline-controls"><label class="check"><input id="global-publish" type="checkbox"> Enable publishing globally</label><label class="check"><input id="global-approval" type="checkbox" checked> Require owner approval</label><button id="save-global">Save controls</button></div><p class="muted small">These are safety preferences only. Official OAuth and platform API approval are still required for live publishing.</p></div>
-<div class="panel"><h2>Add social account</h2><form id="account-form" class="grid-form">
-<label>Account type<select name="platform"><option value="facebook_profile">Facebook Profile</option><option value="facebook_page">Facebook Page</option><option value="instagram">Instagram</option><option value="x">X (Twitter)</option><option value="youtube">YouTube</option><option value="linkedin">LinkedIn</option><option value="tiktok">TikTok</option><option value="pinterest">Pinterest</option></select></label>
-<label>Display name<input name="account_name" maxlength="120" required></label><label>Username / handle<input name="account_handle" maxlength="160" required></label><button>Add account</button></form><p class="muted small">Each platform has 10 independent slots. Facebook Profile and Facebook Page have separate lists and limits. Adding a slot does not sign in to the platform.</p><p id="account-message" class="message" role="status"></p></div>
-<div class="panel"><div class="section-head"><h2>Accounts and individual settings</h2><button id="refresh" class="secondary">Refresh</button></div><div id="limits" class="limits"></div><div id="accounts" class="accounts"><p class="muted">No accounts yet.</p></div></div>
+  <div class="welcome panel">
+    <div class="welcome-copy">
+      <p class="eyebrow">YOUR CONTROL CENTER</p>
+      <h2>Build. Publish. Grow.</h2>
+      <p class="muted">Manage your marketing workflow from one place. Publishing is OFF by default and owner approval stays in control.</p>
+      <div class="welcome-tags"><span>✦ Owner-controlled</span><span>◈ Approval-first</span><span>⌁ Free-first setup</span></div>
+    </div>
+    <button id="logout" class="secondary">Log out <span aria-hidden="true">↗</span></button>
+  </div>
+
+  <nav class="tabs" aria-label="Workspace sections">
+    <button class="tab active" data-tab="accounts"><span class="nav-icon">◉</span>Social accounts</button>
+    <button class="tab" data-tab="content"><span class="nav-icon">✎</span>Content studio</button>
+    <button class="tab" data-tab="growth"><span class="nav-icon">⌁</span>SEO &amp; campaigns</button>
+    <button class="tab" data-tab="analytics"><span class="nav-icon">▥</span>Analytics</button>
+    <button class="tab" data-tab="security"><span class="nav-icon">◇</span>Security</button>
+    <div class="nav-note"><span class="live-dot"></span> Private workspace<br><small>Owner access only</small></div>
+  </nav>
+
+  <section class="tab-panel" id="tab-accounts">
+    <div class="panel">
+      <div class="panel-kicker">01 / SAFETY</div>
+      <h2>Global publishing controls</h2>
+      <div class="inline-controls">
+        <label class="check"><input id="global-publish" type="checkbox"> Enable publishing globally</label>
+        <label class="check"><input id="global-approval" type="checkbox" checked> Require owner approval</label>
+        <button id="save-global">Save controls</button>
+      </div>
+      <p class="muted small">These are safety preferences only. Official OAuth and platform API approval are still required for live publishing.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-kicker">02 / CONNECTED PRESENCE</div>
+      <h2>Add social account</h2>
+      <form id="account-form" class="grid-form">
+        <label>Account type<select name="platform"><option value="facebook_profile">Facebook Profile</option><option value="facebook_page">Facebook Page</option><option value="instagram">Instagram</option><option value="x">X (Twitter)</option><option value="youtube">YouTube</option><option value="linkedin">LinkedIn</option><option value="tiktok">TikTok</option><option value="pinterest">Pinterest</option></select></label>
+        <label>Display name<input name="account_name" maxlength="120" required placeholder="e.g. My brand page"></label>
+        <label>Username / handle<input name="account_handle" maxlength="160" required placeholder="@yourhandle"></label>
+        <button>Add account <span aria-hidden="true">+</span></button>
+      </form>
+      <p class="muted small">Each platform has 10 independent slots. Facebook Profile and Facebook Page have separate lists and limits. Adding a slot does not sign in to the platform.</p>
+      <p id="account-message" class="message" role="status" aria-live="polite"></p>
+    </div>
+    <div class="panel">
+      <div class="section-head"><div><div class="panel-kicker">03 / ACCOUNT CONTROL</div><h2>Accounts and individual settings</h2></div><button id="refresh" class="secondary">↻ Refresh</button></div>
+      <div id="limits" class="limits"></div>
+      <div id="accounts" class="accounts"><p class="muted">No accounts yet.</p></div>
+    </div>
+  </section>
+
+  <section class="tab-panel hidden" id="tab-content">
+    <div class="panel">
+      <div class="panel-kicker">01 / CREATE</div><h2>Create a content draft</h2>
+      <p class="muted">Prepare content here, review it, then decide where it belongs.</p>
+      <form id="content-form" class="stack wide">
+        <label>Title<input name="title" maxlength="180" required placeholder="Give your content a clear title"></label>
+        <label>Publish destination<select name="platform"><option value="blogger">Blogger</option><option value="facebook">Facebook</option><option value="x">X</option><option value="pinterest">Pinterest</option></select></label>
+        <label>Content<textarea name="body" rows="8" minlength="10" required placeholder="Write your article or post draft..."></textarea></label>
+        <button>Save draft <span aria-hidden="true">→</span></button>
+      </form>
+      <p id="content-message" class="message" role="status" aria-live="polite"></p>
+    </div>
+    <div class="panel"><div class="section-head"><h2>Saved drafts</h2><button id="load-drafts" class="secondary">↻ Refresh drafts</button></div><div id="drafts" class="drafts"></div></div>
+  </section>
+
+  <section class="tab-panel hidden" id="tab-growth">
+    <div class="panel"><div class="panel-kicker">01 / SEARCH VISIBILITY</div><h2>SEO content analyzer</h2><form id="seo-form" class="stack wide"><label>Article title<input name="title" required></label><label>Main keyword<input name="keyword" required></label><label>Article content<textarea name="content" rows="7" required></textarea></label><button>Analyze SEO</button></form><pre id="seo-result" class="result"></pre></div>
+    <div class="panel"><div class="panel-kicker">02 / KEYWORD RESEARCH</div><h2>Keyword analysis</h2><form id="keyword-form" class="stack wide"><label>Main keyword<input name="main_keyword" required></label><label>Text to analyze<textarea name="text" rows="5" required></textarea></label><button>Analyze keywords</button></form><pre id="keyword-result" class="result"></pre></div>
+    <div class="panel"><div class="panel-kicker">03 / ORGANIC TRAFFIC</div><h2>Traffic campaign planner</h2><form id="campaign-form" class="grid-form"><label>Campaign name<input name="name" required></label><label>Traffic channel<select name="platform"><option value="blogger">Blogger</option><option value="facebook">Facebook</option><option value="x">X</option><option value="pinterest">Pinterest</option></select></label><label>Website URL<input name="website_url" type="url" placeholder="https://example.com" required></label><button>Create plan</button></form><p id="campaign-message" class="message" role="status"></p><div id="campaigns"></div></div>
+  </section>
+
+  <section class="tab-panel hidden" id="tab-analytics">
+    <div class="panel"><div class="panel-kicker">01 / DAILY INPUT</div><h2>Record daily performance</h2><form id="analytics-form" class="grid-form"><label>Channel<input name="platform" placeholder="Blogger / Facebook" required></label><label>Visitors<input name="visitors" type="number" min="0" value="0"></label><label>Page views<input name="pageviews" type="number" min="0" value="0"></label><label>Ad impressions<input name="impressions" type="number" min="0" value="0"></label><label>Clicks<input name="clicks" type="number" min="0" value="0"></label><label>Earnings<input name="earnings" type="number" min="0" step="0.01" value="0"></label><button>Save daily record</button></form><p id="analytics-message" class="message" role="status"></p></div>
+    <div class="panel"><div class="section-head"><div><div class="panel-kicker">02 / PERFORMANCE</div><h2>Performance summary</h2></div><button id="refresh-analytics" class="secondary">↻ Refresh</button></div><div id="analytics-summary"></div></div>
+  </section>
+
+  <section class="tab-panel hidden" id="tab-security"><div class="panel"><div class="panel-kicker">OWNER ACCESS</div><h2>Change owner password</h2><p class="muted">Use a unique password of at least 12 characters.</p><form id="password-form" class="stack"><label>Current password<input name="current_password" type="password" required autocomplete="current-password"></label><label>New password (minimum 12 characters)<input name="new_password" type="password" minlength="12" required autocomplete="new-password"></label><button>Change password and sign out</button></form><p id="password-message" class="message" role="status"></p></div></section>
 </section>
-<section class="tab-panel hidden" id="tab-content">
-<div class="panel"><h2>Create a content draft</h2><form id="content-form" class="stack wide"><label>Title<input name="title" maxlength="180" required></label><label>Publish destination<select name="platform"><option value="blogger">Blogger</option><option value="facebook">Facebook</option><option value="x">X</option><option value="pinterest">Pinterest</option></select></label><label>Content<textarea name="body" rows="8" minlength="10" required></textarea></label><button>Save draft</button></form><p id="content-message" class="message" role="status"></p></div>
-<div class="panel"><h2>Saved drafts</h2><button id="load-drafts" class="secondary">Refresh drafts</button><div id="drafts" class="drafts"></div></div>
-</section>
-<section class="tab-panel hidden" id="tab-growth">
-<div class="panel"><h2>SEO content analyzer</h2><form id="seo-form" class="stack wide"><label>Article title<input name="title" required></label><label>Main keyword<input name="keyword" required></label><label>Article content<textarea name="content" rows="7" required></textarea></label><button>Analyze SEO</button></form><pre id="seo-result" class="result"></pre></div>
-<div class="panel"><h2>Keyword analysis</h2><form id="keyword-form" class="stack wide"><label>Main keyword<input name="main_keyword" required></label><label>Text to analyze<textarea name="text" rows="5" required></textarea></label><button>Analyze keywords</button></form><pre id="keyword-result" class="result"></pre></div>
-<div class="panel"><h2>Traffic campaign planner</h2><form id="campaign-form" class="grid-form"><label>Campaign name<input name="name" required></label><label>Traffic channel<select name="platform"><option value="blogger">Blogger</option><option value="facebook">Facebook</option><option value="x">X</option><option value="pinterest">Pinterest</option></select></label><label>Website URL<input name="website_url" type="url" placeholder="https://example.com" required></label><button>Create plan</button></form><p id="campaign-message" class="message"></p><div id="campaigns"></div></div>
-</section>
-<section class="tab-panel hidden" id="tab-analytics">
-<div class="panel"><h2>Record daily performance</h2><form id="analytics-form" class="grid-form"><label>Channel<input name="platform" placeholder="Blogger / Facebook" required></label><label>Visitors<input name="visitors" type="number" min="0" value="0"></label><label>Page views<input name="pageviews" type="number" min="0" value="0"></label><label>Ad impressions<input name="impressions" type="number" min="0" value="0"></label><label>Clicks<input name="clicks" type="number" min="0" value="0"></label><label>Earnings<input name="earnings" type="number" min="0" step="0.01" value="0"></label><button>Save daily record</button></form><p id="analytics-message" class="message"></p></div>
-<div class="panel"><div class="section-head"><h2>Performance summary</h2><button id="refresh-analytics" class="secondary">Refresh</button></div><div id="analytics-summary"></div></div>
-</section>
-<section class="tab-panel hidden" id="tab-security"><div class="panel"><h2>Change owner password</h2><form id="password-form" class="stack"><label>Current password<input name="current_password" type="password" required></label><label>New password (minimum 12 characters)<input name="new_password" type="password" minlength="12" required></label><button>Change password and sign out</button></form><p id="password-message" class="message"></p></div></section>
-</section><footer>Private owner workspace · Keep passwords, setup keys and API tokens secret.</footer></main></body></html>
+<footer>Asfandyar AI Studio · Private owner workspace · Keep passwords, setup keys and API tokens secret.</footer>
+</main>
+</body>
+</html>
