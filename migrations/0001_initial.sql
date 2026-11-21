@@ -2,8 +2,6 @@
 -- Apply with: npx wrangler d1 migrations apply asfandyar-ai-studio-db --remote
 -- No passwords, API keys, OAuth tokens, or personal data belong in this file.
 
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS admin_user (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     username TEXT NOT NULL UNIQUE,
