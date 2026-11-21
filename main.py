@@ -125,6 +125,10 @@ async def security_and_auth_middleware(request: Request, call_next):
             response.headers["X-Frame-Options"] = "DENY"
             response.headers["Referrer-Policy"] = "no-referrer"
             response.headers["Cache-Control"] = "no-store"
+            response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'"
+            response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+            if request.url.scheme == "https":
+                response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
             return response
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             csrf = request.headers.get("X-CSRF-Token", "")
@@ -135,6 +139,10 @@ async def security_and_auth_middleware(request: Request, call_next):
                 response.headers["Referrer-Policy"] = "no-referrer"
                 response.headers["Cache-Control"] = "no-store"
                 response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'"
+                response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+                if request.url.scheme == "https":
+                    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+                auth.record_security_event("csrf_validation_failed", request.client.host if request.client else "unknown")
                 return response
 
     response = await call_next(request)
@@ -186,6 +194,11 @@ def login(request: LoginRequest, http_request: Request, response: Response):
         path="/",
     )
     return {"success": True, "username": result["username"], "csrf_token": result["csrf"], "expires_in_seconds": 28800}
+
+
+@app.get("/security/events")
+def security_events():
+    return {"events": auth.list_security_events(100), "retention_limit": 1000}
 
 
 @app.get("/auth/me")
