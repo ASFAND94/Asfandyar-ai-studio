@@ -244,6 +244,17 @@ class AuthManager:
                         ("logout", token_digest("session"), utc_text(utc_now()))
                     )
 
+    def verify_owner_password(self, password):
+        with self.connect() as db:
+            user = db.execute(
+                "SELECT password_hash FROM admin_user WHERE id = 1"
+            ).fetchone()
+        return bool(user and verify_password(password, user["password_hash"]))
+
+    def revoke_all_sessions(self):
+        with self.connect() as db:
+            db.execute("DELETE FROM admin_sessions")
+
     def change_password(self, raw_session, current_password, new_password):
         if len(new_password) < 12 or len(new_password) > 256:
             raise ValueError("New password must be 12 to 256 characters.")
