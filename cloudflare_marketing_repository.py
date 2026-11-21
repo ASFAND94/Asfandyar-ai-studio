@@ -1,14 +1,52 @@
 """D1-backed repositories for drafts, traffic plans, and manual analytics."""
 from datetime import date
+from html import escape
+from urllib.parse import urlparse
 
 
 class D1ContentRepository:
     def __init__(self, store):
         self.store = store
 
+
+    async def _insert_enabled_monetization_links(self, body):
+        settings = await self.store.all(
+            """SELECT provider, direct_link_url, placement
+               FROM monetization_link_settings WHERE enabled = 1"""
+        )
+        paragraphs = body.split("\\n\\n")
+        insertions = {}
+        for setting in settings:
+            url = (setting.get("direct_link_url") or "").strip()
+            parsed = urlparse(url)
+            if parsed.scheme != "https" or not parsed.netloc:
+                continue
+            provider = setting["provider"].title()
+            anchor = (
+                '<p><a href="' + escape(url, quote=True) +
+                '" rel="sponsored nofollow noopener noreferrer" target="_blank">' +
+                'Visit our ' + escape(provider) + ' partner</a></p>'
+            )
+            placement = setting.get("placement", "end_article")
+            if placement == "after_intro":
+                index = min(1, len(paragraphs))
+            elif placement == "mid_article":
+                index = max(1, len(paragraphs) // 2)
+            else:
+                index = len(paragraphs)
+            insertions.setdefault(index, []).append(anchor)
+        output = []
+        for index in range(len(paragraphs) + 1):
+            output.extend(insertions.get(index, []))
+            if index < len(paragraphs):
+                output.append(paragraphs[index])
+        return "\\n\\n".join(output)
+
     async def create_content(self, title, body, platform="blogger"):
         if not title or not body:
             return None
+        if platform == "blogger":
+            body = await self._insert_enabled_monetization_links(body)
         result = await self.store.execute(
             """INSERT INTO content_drafts (title, body, platform, status)
                VALUES (?, ?, ?, 'draft')""",
