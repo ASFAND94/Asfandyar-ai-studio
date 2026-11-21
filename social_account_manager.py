@@ -6,7 +6,7 @@ DB_PATH = Path(__file__).resolve().parent / "asfandyar.db"
 
 SUPPORTED_PLATFORMS = {
     "facebook", "instagram", "x", "youtube",
-    "linkedin", "tiktok", "pinterest", "threads"
+    "linkedin", "tiktok", "pinterest"
 }
 MAX_ACCOUNTS_PER_PLATFORM = 5
 
