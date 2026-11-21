@@ -28,6 +28,10 @@ class DashboardAPISmokeTests(unittest.TestCase):
         self.assertEqual(status.status_code, 200)
         self.assertTrue(status.json()["setup_required"])
 
+        readiness = self.client.get("/ready")
+        self.assertEqual(readiness.status_code, 200, readiness.text)
+        self.assertEqual(readiness.json()["status"], "ready")
+
         setup = self.client.post("/auth/setup", json={
             "setup_key": os.environ["ADMIN_SETUP_KEY"],
             "username": "owner_test",
