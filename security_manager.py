@@ -171,6 +171,7 @@ def put_secret(name, value):
 
 
 def get_secret(name):
+    initialize()
     with _connect() as db:
         row = db.execute("SELECT ciphertext FROM secret_vault WHERE name=?", (name,)).fetchone()
     if not row:
@@ -189,6 +190,7 @@ def list_secret_metadata():
 
 
 def delete_secret(name):
+    initialize()
     with _connect() as db:
         cursor = db.execute("DELETE FROM secret_vault WHERE name=?", (name,))
     return cursor.rowcount > 0
