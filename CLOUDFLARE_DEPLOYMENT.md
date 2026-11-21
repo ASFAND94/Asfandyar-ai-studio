@@ -17,10 +17,12 @@ All changes are on the `cloudflare-deployment-prep` branch. The default `main` b
 - `migrations/0001_initial.sql`: initial D1 schema for owner authentication, sessions, login attempts, social account slots/preferences, owner controls, content drafts, campaigns, and analytics.
 - `cloudflare_d1.py`: async D1 adapter using prepared statements and bound parameters. It obtains the D1 binding from FastAPI's documented ASGI request scope (`request.scope["env"]`).
 - `cloudflare_social_repository.py`: async D1-backed social-account repository, kept separate from the local SQLite manager.
+- `cloudflare_marketing_repository.py`: async D1 repositories for content drafts, traffic campaign plans, and manual analytics.
 - `cloudflare_app.py`: isolated FastAPI worker shell with basic health endpoints; it does not import the current SQLite-backed `main.py`.
 - `cloudflare_worker.py`: Python Worker entrypoint using Cloudflare's documented `asgi.fetch(app, request, self.env)` pattern.
 - `pyproject.toml`: minimal Python Workers dependency manifest, separate from the local Windows `requirements.txt`.
-- Tests for the D1 adapter, social repository behavior, and Worker shell.
+- Tests for the D1 adapter, social repository behavior, marketing repositories, and Worker shell.
+- The initial D1 SQL migration was executed against a local SQLite engine for syntax/schema validation; this does not replace a real Cloudflare D1 migration test.
 
 ## Important scope boundary
 
@@ -34,10 +36,11 @@ The existing SQLite database is not automatically copied to D1. Before switching
 2. Test the D1 adapter and Worker entrypoint with Cloudflare's local runtime (PyWrangler), not only fake bindings.
 3. Add D1-backed authentication while preserving the current PBKDF2 password hashing, hashed session tokens, lockout, and CSRF protections.
 4. Wire the D1 social repository into API routes and test account limits and owner controls.
-5. Migrate content drafts, campaigns, and analytics from process memory to D1.
-6. Configure Workers Static Assets so the current dashboard paths work correctly.
-7. Create the actual D1 database in the owner's Cloudflare account, then place its real database ID into the Wrangler configuration. Do not invent or commit a placeholder ID.
-8. Only after local Worker smoke tests pass, prepare a deployment. No deployment has been performed.
+5. Wire the content, campaign, and analytics repositories into API routes; verify insert IDs and persistence across Worker restarts.
+6. Migrate authentication carefully. Benchmark the current PBKDF2-HMAC-SHA256 310,000-iteration verification under the free Worker CPU limits before choosing the runtime implementation; do not weaken password hashing just to make it fit.
+7. Configure Workers Static Assets so the current dashboard paths work correctly.
+8. Create the actual D1 database in the owner's Cloudflare account, then place its real database ID into the Wrangler configuration. Do not invent or commit a placeholder ID.
+9. Only after local Worker smoke tests pass, prepare a deployment. No deployment has been performed.
 
 ## Runtime and security notes
 
