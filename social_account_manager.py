@@ -8,10 +8,10 @@ from typing import Optional
 DB_PATH = Path(os.getenv("SOCIAL_DB_PATH", str(Path(__file__).resolve().parent / "asfandyar.db")))
 
 SUPPORTED_PLATFORMS = {
-    "facebook", "instagram", "x", "youtube",
+    "facebook_profile", "facebook_page", "instagram", "x", "youtube",
     "linkedin", "tiktok", "pinterest"
 }
-MAX_ACCOUNTS_PER_PLATFORM = 5
+MAX_ACCOUNTS_PER_PLATFORM = 10
 DEFAULT_FORMATS = ["post"]
 
 
@@ -56,6 +56,8 @@ class SocialAccountManager:
                     UNIQUE(platform, account_handle)
                 )
             """)
+            # Keep old generic Facebook entries as personal-profile slots.
+            connection.execute("UPDATE social_accounts SET platform = 'facebook_profile' WHERE platform = 'facebook'")
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS social_account_preferences (
                     account_id INTEGER PRIMARY KEY,
@@ -83,6 +85,8 @@ class SocialAccountManager:
 
     def add_account(self, platform, account_name, account_handle):
         platform = platform.strip().lower()
+        if platform == "facebook":
+            platform = "facebook_profile"  # Backward compatibility.
         account_name = account_name.strip()
         account_handle = account_handle.strip()
         if platform not in SUPPORTED_PLATFORMS:
