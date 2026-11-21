@@ -18,8 +18,10 @@ class BloggerManager:
         self.refresh_credentials()
 
     def refresh_credentials(self):
-        self.access_token = os.getenv("BLOGGER_ACCESS_TOKEN")
-        self.blog_id = os.getenv("BLOGGER_BLOG_ID")
+        # Keep already loaded credentials when environment variables are blank;
+        # this also makes repeated refresh checks deterministic.
+        self.access_token = os.getenv("BLOGGER_ACCESS_TOKEN") or self.access_token
+        self.blog_id = os.getenv("BLOGGER_BLOG_ID") or self.blog_id
         if not self.access_token or not self.blog_id:
             try:
                 self.access_token = self.access_token or security_manager.get_secret("blogger_access_token")
