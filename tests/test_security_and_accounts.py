@@ -33,7 +33,9 @@ class SocialAccountManagerTests(unittest.TestCase):
         prefs = self.manager.get_preferences(account["id"])
         self.assertEqual(prefs["niche"], "")
         self.assertFalse(prefs["publishing_enabled"])
-        self.assertTrue(prefs["require_approval"])\n        with self.assertRaises(ValueError):\n            self.manager.update_preferences(account["id"], {"require_approval": False})
+        self.assertTrue(prefs["require_approval"])
+        with self.assertRaises(ValueError):
+            self.manager.update_preferences(account["id"], {"require_approval": False})
         updated = self.manager.update_preferences(account["id"], {
             "niche": "AI education", "content_formats": ["reel", "post"],
             "publishing_enabled": True,
@@ -46,7 +48,9 @@ class SocialAccountManagerTests(unittest.TestCase):
     def test_global_publishing_is_off_by_default(self):
         controls = self.manager.get_owner_controls()
         self.assertFalse(controls["global_publishing_enabled"])
-        self.assertTrue(controls["require_approval"])\n        with self.assertRaises(ValueError):\n            self.manager.update_owner_controls(require_approval=False)
+        self.assertTrue(controls["require_approval"])
+        with self.assertRaises(ValueError):
+            self.manager.update_owner_controls(require_approval=False)
 
 
 class AuthManagerTests(unittest.TestCase):
