@@ -31,6 +31,7 @@ class SocialAccountManager:
         connection.row_factory = sqlite3.Row
         try:
             connection.execute("PRAGMA busy_timeout = 15000")
+            connection.execute("PRAGMA foreign_keys = ON")
             yield connection
             connection.commit()
         except Exception:
