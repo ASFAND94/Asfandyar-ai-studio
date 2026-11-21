@@ -1,101 +1,30 @@
-const $ = (id) => document.getElementById(id);
-let csrfToken = sessionStorage.getItem("asfandyar_csrf") || "";
-
-function message(id, text, error=false){const el=$(id);el.textContent=text;el.classList.toggle("error",error)}
-async function api(path, options={}){
-  const headers={"Content-Type":"application/json",...(options.headers||{})};
-  if(options.method && !["GET","HEAD"].includes(options.method.toUpperCase()) && csrfToken) headers["X-CSRF-Token"]=csrfToken;
-  const response=await fetch(path,{...options,headers,credentials:"same-origin"});
-  const data=await response.json().catch(()=>({detail:"Unexpected server response"}));
-  if(!response.ok) throw new Error(data.detail || "Request failed");
-  return data;
-}
-function showLogin(setup){
-  $("auth-panel").classList.remove("hidden");$("dashboard").classList.add("hidden");
-  $("setup-form").classList.toggle("hidden",!setup);$("login-form").classList.toggle("hidden",setup);
-  $("auth-title").textContent=setup?"Create your private owner account":"Secure sign in";
-  $("auth-note").textContent=setup?"One-time setup. Keep the setup key private.":"Only the owner can access this workspace.";
-}
-function showDashboard(){ $("auth-panel").classList.add("hidden");$("dashboard").classList.remove("hidden"); loadAll(); }
-async function initialize(){
-  try{
-    const status=await api("/auth/status");
-    if(status.setup_required){showLogin(true);return;}
-    if(csrfToken){
-      try{await api("/auth/me");showDashboard();return;}catch(_){}
-    }
-    showLogin(false);
-  }catch(error){showLogin(false);message("auth-message","Cannot reach server: "+error.message,true);}
-}
-$("setup-form").addEventListener("submit",async e=>{
-  e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));
-  try{await api("/auth/setup",{method:"POST",body:JSON.stringify(data)});e.currentTarget.reset();showLogin(false);message("auth-message","Owner account created. Sign in now.");}
-  catch(error){message("auth-message",error.message,true);}
-});
-$("login-form").addEventListener("submit",async e=>{
-  e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));
-  try{const result=await api("/auth/login",{method:"POST",body:JSON.stringify(data)});csrfToken=result.csrf_token;sessionStorage.setItem("asfandyar_csrf",csrfToken);e.currentTarget.reset();showDashboard();}
-  catch(error){message("auth-message",error.message,true);}
-});
-$("logout").addEventListener("click",async()=>{
-  try{await api("/auth/logout",{method:"POST",body:"{}"});}catch(_){}
-  csrfToken="";sessionStorage.removeItem("asfandyar_csrf");showLogin(false);
-});
-async function loadAll(){await Promise.all([loadAccounts(),loadControls()]);}
-async function loadControls(){
-  try{const c=await api("/control/settings");$("global-publish").checked=c.global_publishing_enabled;$("global-approval").checked=c.require_approval;}
-  catch(error){message("account-message",error.message,true);}
-}
-$("save-global").addEventListener("click",async()=>{
-  try{const result=await api("/control/settings",{method:"PUT",body:JSON.stringify({global_publishing_enabled:$("global-publish").checked,require_approval:$("global-approval").checked})});message("account-message","Control settings saved. Global publishing: "+(result.settings.global_publishing_enabled?"ON":"OFF"));}
-  catch(error){message("account-message",error.message,true);}
-});
-$("account-form").addEventListener("submit",async e=>{
-  e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));
-  try{await api("/social/accounts",{method:"POST",body:JSON.stringify(data)});e.currentTarget.reset();message("account-message","Account slot added. Connect authorization later through official OAuth.");await loadAccounts();}
-  catch(error){message("account-message",error.message,true);}
-});
+const $=id=>document.getElementById(id);let csrfToken=sessionStorage.getItem("asfandyar_csrf")||"";
+function msg(id,text,error=false){const e=$(id);if(!e)return;e.textContent=text;e.classList.toggle("error",error)}
+async function api(path,options={}){const headers={"Content-Type":"application/json",...(options.headers||{})};if(options.method&&!["GET","HEAD"].includes(options.method.toUpperCase())&&csrfToken)headers["X-CSRF-Token"]=csrfToken;const r=await fetch(path,{...options,headers,credentials:"same-origin"});const d=await r.json().catch(()=>({detail:"Unexpected server response"}));if(!r.ok)throw Error(d.detail||"Request failed");return d}
+function formData(form){return Object.fromEntries(new FormData(form))}
+function showLogin(setup){$("auth-panel").classList.remove("hidden");$("dashboard").classList.add("hidden");$("setup-form").classList.toggle("hidden",!setup);$("login-form").classList.toggle("hidden",setup);$("auth-title").textContent=setup?"Create owner account":"Secure sign in";$("auth-note").textContent=setup?"Use the one-time key shown in the terminal.":"Only the owner can access this workspace."}
+function showDashboard(){$("auth-panel").classList.add("hidden");$("dashboard").classList.remove("hidden");loadAll()}
+async function initialize(){try{const s=await api("/auth/status");if(s.setup_required){showLogin(true);return}if(csrfToken){try{await api("/auth/me");showDashboard();return}catch(_){}}showLogin(false)}catch(e){showLogin(false);msg("auth-message","Cannot reach server: "+e.message,true)}}
+$("setup-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/auth/setup",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});e.currentTarget.reset();showLogin(false);msg("auth-message","Owner created. Remove ADMIN_SETUP_KEY from .env and restart before signing in.")}catch(x){msg("auth-message",x.message,true)}});
+$("login-form").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});csrfToken=d.csrf_token;sessionStorage.setItem("asfandyar_csrf",csrfToken);e.currentTarget.reset();showDashboard()}catch(x){msg("auth-message",x.message,true)}});
+$("logout").addEventListener("click",async()=>{try{await api("/auth/logout",{method:"POST",body:"{}"})}catch(_){}csrfToken="";sessionStorage.removeItem("asfandyar_csrf");showLogin(false)});
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".tab-panel").forEach(x=>x.classList.toggle("hidden",x.id!=="tab-"+b.dataset.tab));if(b.dataset.tab==="content")loadDrafts();if(b.dataset.tab==="growth")loadCampaigns();if(b.dataset.tab==="analytics")loadAnalytics()}));
+async function loadAll(){await Promise.all([loadAccounts(),loadControls()])}
+async function loadControls(){try{const d=await api("/control/settings");$("global-publish").checked=d.global_publishing_enabled;$("global-approval").checked=d.require_approval}catch(e){msg("account-message",e.message,true)}}
+$("save-global").addEventListener("click",async()=>{try{const d=await api("/control/settings",{method:"PUT",body:JSON.stringify({global_publishing_enabled:$("global-publish").checked,require_approval:$("global-approval").checked})});msg("account-message","Settings saved. Publishing is "+(d.settings.global_publishing_enabled?"ON":"OFF")+".")}catch(e){msg("account-message",e.message,true)}});
+$("account-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/social/accounts",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});e.currentTarget.reset();msg("account-message","Account slot saved. Official platform connection is a separate step.");await loadAccounts()}catch(x){msg("account-message",x.message,true)}});
 $("refresh").addEventListener("click",loadAccounts);
-async function loadAccounts(){
-  try{
-    const data=await api("/social/accounts");const limits=$("limits");limits.replaceChildren();
-    Object.entries(data.limits).forEach(([platform,v])=>{const span=document.createElement("span");span.className="limit";span.textContent=platform+" "+v.used+"/"+v.limit;limits.append(span);});
-    const list=$("accounts");list.replaceChildren();
-    if(!data.accounts.length){const p=document.createElement("p");p.className="muted";p.textContent="No accounts registered yet.";list.append(p);return;}
-    for(const account of data.accounts){const pref=await api("/social/accounts/"+account.id+"/preferences");list.append(renderAccount(account,pref));}
-  }catch(error){message("account-message",error.message,true);}
-}
-function renderAccount(account,pref){
-  const wrap=document.createElement("article");wrap.className="account";
-  const head=document.createElement("div");head.className="account-head";
-  const title=document.createElement("div");title.className="account-name";const platformNames={facebook_profile:"FACEBOOK PROFILE",facebook_page:"FACEBOOK PAGE"};title.textContent=(platformNames[account.platform]||account.platform.toUpperCase())+" · "+account.account_name+" ("+account.account_handle+")";
-  const status=document.createElement("span");status.className="tag";status.textContent=account.status.replaceAll("_"," ");head.append(title,status);wrap.append(head);
-  const fields=document.createElement("div");fields.className="account-settings";
-  const nicheLabel=document.createElement("label");nicheLabel.textContent="Your chosen niche";
-  const niche=document.createElement("input");niche.value=pref.niche;niche.placeholder="You decide this niche";niche.maxLength=160;nicheLabel.append(niche);
-  const formatLabel=document.createElement("label");formatLabel.textContent="Content formats (comma separated)";
-  const formats=document.createElement("input");formats.value=pref.content_formats.join(", ");formats.placeholder="post, video, reel";formatLabel.append(formats);
-  const enabledLabel=document.createElement("label");enabledLabel.className="inline-check";
-  const enabled=document.createElement("input");enabled.type="checkbox";enabled.checked=pref.publishing_enabled;enabledLabel.append(enabled,document.createTextNode("Publishing allowed for this account"));
-  const approvalLabel=document.createElement("label");approvalLabel.className="inline-check";
-  const approval=document.createElement("input");approval.type="checkbox";approval.checked=pref.require_approval;approvalLabel.append(approval,document.createTextNode("My approval required"));
-  fields.append(nicheLabel,formatLabel,enabledLabel,approvalLabel);wrap.append(fields);
-  const actions=document.createElement("div");actions.className="account-actions";
-  const save=document.createElement("button");save.textContent="Save account settings";save.addEventListener("click",async()=>{
-    const list=formats.value.split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
-    try{await api("/social/accounts/"+account.id+"/preferences",{method:"PUT",body:JSON.stringify({niche:niche.value,content_formats:list,publishing_enabled:enabled.checked,require_approval:approval.checked})});message("account-message","Saved settings for "+account.account_name+". Your niche remains exactly as you entered it.");}
-    catch(error){message("account-message",error.message,true);}
-  });
-  const remove=document.createElement("button");remove.className="secondary";remove.textContent="Remove";remove.addEventListener("click",async()=>{
-    if(!confirm("Remove this registered account slot?"))return;
-    try{await api("/social/accounts/"+account.id,{method:"DELETE",body:"{}"});await loadAccounts();}
-    catch(error){message("account-message",error.message,true);}
-  });
-  actions.append(save,remove);wrap.append(actions);return wrap;
-}
-$("password-form").addEventListener("submit",async e=>{
-  e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));
-  try{await api("/auth/change-password",{method:"POST",body:JSON.stringify(data)});csrfToken="";sessionStorage.removeItem("asfandyar_csrf");e.currentTarget.reset();showLogin(false);message("auth-message","Password changed. Please sign in with the new password.");}
-  catch(error){message("password-message",error.message,true);}
-});
+async function loadAccounts(){try{const d=await api("/social/accounts");$("limits").replaceChildren();Object.entries(d.limits).forEach(([k,v])=>{const s=document.createElement("span");s.className="limit";s.textContent=k.replaceAll("_"," ")+" "+v.used+"/"+v.limit;$("limits").append(s)});const root=$("accounts");root.replaceChildren();if(!d.accounts.length){root.textContent="No accounts registered yet.";return}for(const a of d.accounts){const p=await api("/social/accounts/"+a.id+"/preferences");root.append(renderAccount(a,p))}}catch(e){msg("account-message",e.message,true)}}
+function renderAccount(a,p){const w=document.createElement("article");w.className="account";const h=document.createElement("div");h.className="account-head";const t=document.createElement("strong");t.textContent=a.platform.replaceAll("_"," ").toUpperCase()+" · "+a.account_name+" ("+a.account_handle+")";const st=document.createElement("span");st.className="tag";st.textContent=a.status.replaceAll("_"," ");h.append(t,st);w.append(h);const g=document.createElement("div");g.className="account-settings";const nl=document.createElement("label");nl.textContent="Niche";const n=document.createElement("input");n.value=p.niche;n.maxLength=160;n.placeholder="Your chosen niche";nl.append(n);const fl=document.createElement("label");fl.textContent="Formats: post, video, reel, story, short, article";const f=document.createElement("input");f.value=p.content_formats.join(", ");fl.append(f);const el=document.createElement("label");el.className="inline-check";const en=document.createElement("input");en.type="checkbox";en.checked=p.publishing_enabled;el.append(en,document.createTextNode("Account publishing allowed"));const al=document.createElement("label");al.className="inline-check";const ap=document.createElement("input");ap.type="checkbox";ap.checked=p.require_approval;al.append(ap,document.createTextNode("Approval required"));g.append(nl,fl,el,al);w.append(g);const acts=document.createElement("div");acts.className="account-actions";const save=document.createElement("button");save.textContent="Save settings";save.onclick=async()=>{try{const formats=f.value.split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);await api("/social/accounts/"+a.id+"/preferences",{method:"PUT",body:JSON.stringify({niche:n.value,content_formats:formats,publishing_enabled:en.checked,require_approval:ap.checked})});msg("account-message","Saved "+a.account_name)}catch(e){msg("account-message",e.message,true)}};const del=document.createElement("button");del.className="secondary";del.textContent="Remove";del.onclick=async()=>{if(confirm("Remove this account slot?"))try{await api("/social/accounts/"+a.id,{method:"DELETE",body:"{}"});loadAccounts()}catch(e){msg("account-message",e.message,true)}};acts.append(save,del);w.append(acts);return w}
+$("content-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/content",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});e.currentTarget.reset();msg("content-message","Draft saved locally.");loadDrafts()}catch(x){msg("content-message",x.message,true)}});
+$("load-drafts").addEventListener("click",loadDrafts);
+async function loadDrafts(){try{const d=await api("/content");const root=$("drafts");root.replaceChildren();if(!d.length){root.textContent="No drafts saved yet.";return}d.forEach(x=>{const a=document.createElement("article");a.className="draft";const h=document.createElement("h3");h.textContent=x.title||"Untitled";const p=document.createElement("p");p.textContent=(x.body||"").slice(0,420);const m=document.createElement("small");m.textContent="Destination: "+(x.platform||"");a.append(h,p,m);root.append(a)})}catch(e){$("drafts").textContent=e.message}}
+$("seo-form").addEventListener("submit",async e=>{e.preventDefault();try{$("seo-result").textContent=JSON.stringify(await api("/seo/analyze",{method:"POST",body:JSON.stringify(formData(e.currentTarget))}),null,2)}catch(x){$("seo-result").textContent=x.message}});
+$("keyword-form").addEventListener("submit",async e=>{e.preventDefault();try{$("keyword-result").textContent=JSON.stringify(await api("/keywords/analyze",{method:"POST",body:JSON.stringify(formData(e.currentTarget))}),null,2)}catch(x){$("keyword-result").textContent=x.message}});
+$("campaign-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/campaigns",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});e.currentTarget.reset();msg("campaign-message","Campaign plan saved. No traffic has been purchased or sent.");loadCampaigns()}catch(x){msg("campaign-message",x.message,true)}});
+async function loadCampaigns(){try{const d=await api("/campaigns");const root=$("campaigns");root.replaceChildren();(d||[]).forEach(c=>{const p=document.createElement("p");p.className="draft";p.textContent=(c.name||"Campaign")+" · "+(c.platform||"")+" · "+(c.website_url||"");root.append(p)})}catch(e){$("campaigns").textContent=e.message}}
+$("analytics-form").addEventListener("submit",async e=>{e.preventDefault();const d=formData(e.currentTarget);for(const k of ["visitors","pageviews","impressions","clicks","earnings"])d[k]=Number(d[k]||0);try{const r=await api("/analytics/record",{method:"POST",body:JSON.stringify(d)});msg("analytics-message","Record saved. "+JSON.stringify(r));loadAnalytics()}catch(x){msg("analytics-message",x.message,true)}});
+$("refresh-analytics").addEventListener("click",loadAnalytics);
+async function loadAnalytics(){try{const d=await api("/analytics/summary");const root=$("analytics-summary");root.replaceChildren();const p=document.createElement("p");p.className="metric";p.textContent="Total recorded earnings: "+Number(d.total_earnings||0).toFixed(2);const q=document.createElement("p");q.textContent="Records: "+d.record_count;root.append(p,q);(d.records||[]).forEach(r=>{const x=document.createElement("p");x.className="draft";x.textContent=JSON.stringify(r);root.append(x)})}catch(e){$("analytics-summary").textContent=e.message}}
+$("password-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/auth/change-password",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});csrfToken="";sessionStorage.removeItem("asfandyar_csrf");e.currentTarget.reset();showLogin(false);msg("auth-message","Password changed. Sign in again.")}catch(x){msg("password-message",x.message,true)}});
 initialize();
