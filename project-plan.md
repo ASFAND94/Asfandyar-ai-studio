@@ -1,64 +1,42 @@
 # Asfandyar AI Studio
 
-## Project Overview
-A free, AI-powered digital marketing management platform.
+## Project overview
+A zero-cost-first AI-assisted digital marketing and automation platform.
 
-## Main Goals
-Build an automated platform that manages multiple social media accounts simultaneously and helps grow website traffic and online earnings.
+## Social platforms and account limits
+The account registry supports these seven platforms:
+- Facebook
+- Instagram
+- X (Twitter)
+- YouTube
+- LinkedIn
+- TikTok
+- Pinterest
 
-## Core Features
+Each platform has its own independent limit of **5 registered account slots** (up to 35 account slots overall). For example, five Facebook accounts and five Instagram accounts can be registered independently.
 
-### 1. Social Media Management
-- Facebook publishing
-- X (Twitter) publishing
-- Pinterest publishing
-- Multiple accounts management
-- Simultaneous publishing
-- Separate account settings
+A registered slot is not yet an authenticated connection. Actual publishing and account insights require the relevant platform's official OAuth/API permissions. Credentials must never be collected in plain text or committed to GitHub. Build provider-specific OAuth and encrypted token storage as a separate stage.
 
-### 2. AI Content Creation
-- AI article writing
-- Social media post generation
-- SEO-optimized content
-- Hashtag generation
-- Image content planning
+## Core features and roadmap
+1. Social account registry, per-platform limits, account selection and connection status.
+2. Official OAuth integrations and publishing adapters, only where provider APIs and account eligibility permit.
+3. AI-assisted articles and social content, with review before publishing.
+4. Blogger integration and scheduled publishing.
+5. SEO checks, keyword research and content planning.
+6. Traffic campaign planning using genuine, policy-compliant traffic.
+7. Account-wise and website analytics.
+8. Adsterra and Monetag reporting/integration where supported by their official interfaces.
 
-### 3. Blogger Automation
-- Automatic article publishing
-- SEO optimization
-- Website traffic campaigns
-- Content scheduling
+## Zero-cost and safety rules
+- Prefer free tiers and open-source components.
+- Clearly flag any feature that needs paid access, approval, or API eligibility.
+- Never buy traffic, generate fake engagement, or spam.
+- Follow each platform's terms, rate limits, and automation rules.
+- Never spend money without explicit permission.
+- Protect credentials; never store plaintext passwords or API tokens in source control.
 
-### 4. Advertising Management
-- Adsterra integration
-- Monetag integration
-- Traffic analytics
-- Revenue monitoring
-
-### 5. Analytics Dashboard
-- Website traffic reports
-- Social media performance
-- Account-wise analytics
-- Publishing history
-
-## Technical Requirements
-- Zero-cost development
-- Free and open-source tools
-- Secure API integrations
-- Responsive web dashboard
-- Multi-account support
-- Automated scheduling
-
-## Important Rules
-- Never use fake traffic.
-- Never generate spam.
-- Follow platform API policies.
-- Never spend money without permission.
-- Protect account credentials.
-
-## Development Strategy
-Build the project step by step, test every feature, and prioritize reliable free solutions.
-
-**Project Name:** Asfandyar AI Studio  
-**Version:** 1.0  
-**Status:** Initial Development
+## Current implementation status
+- FastAPI application and starter marketing endpoints.
+- SQLite-backed social account registry with five independent slots per supported platform.
+- Account listing, registration, removal, and limit-summary API endpoints.
+- OAuth authorization and real publishing are not implemented yet.
