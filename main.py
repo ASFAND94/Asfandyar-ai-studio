@@ -5,6 +5,9 @@ import os
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from analytics_manager import AnalyticsManager
 from auth_manager import AuthManager, SESSION_COOKIE
@@ -105,12 +108,17 @@ class SocialAccountRequest(BaseModel):
 @app.middleware("http")
 async def security_and_auth_middleware(request: Request, call_next):
     path = request.url.path
-    public_paths = {"/health", "/auth/setup", "/auth/login"}
+    public_paths = {"/health", "/auth/status", "/auth/setup", "/auth/login"}
     if path not in public_paths:
         raw_session = request.cookies.get(SESSION_COOKIE)
         session = auth.validate_session(raw_session)
         if not session:
-            return JSONResponse(status_code=401, content={"detail": "Login required."})
+            response = JSONResponse(status_code=401, content={"detail": "Login required."})
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Referrer-Policy"] = "no-referrer"
+            response.headers["Cache-Control"] = "no-store"
+            return response
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             csrf = request.headers.get("X-CSRF-Token", "")
             if not auth.validate_csrf(session, csrf):
