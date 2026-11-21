@@ -6,6 +6,8 @@ This checklist describes the current prepared release. It does not claim that th
 - [x] FastAPI application and installable responsive PWA shell
 - [x] Owner setup/login/logout/password change
 - [x] CSRF, hashed sessions, password hashing, login throttling and security headers
+- [x] TOTP authenticator MFA with rate-limited codes
+- [x] Fernet-encrypted secret vault with metadata-only listing
 - [x] Mandatory owner approval; publishing defaults OFF
 - [x] Persistent SQLite content, campaign and analytics modules
 - [x] Dockerfile and Docker Compose persistent volume
@@ -22,14 +24,15 @@ This checklist describes the current prepared release. It does not claim that th
 - [ ] Confirm APP_DB_PATH, AUTH_DB_PATH and SOCIAL_DB_PATH all point to the same persistent database file.
 - [ ] Confirm /health and /ready return healthy/ready.
 - [ ] Confirm owner login, logout, password change, CSRF rejection and session revocation.
+- [ ] Set and separately back up APP_ENCRYPTION_KEY; enable authenticator MFA and safely store the authenticator seed/device.
 - [ ] Confirm publishing is OFF and owner approval cannot be disabled.
 - [ ] Create a test draft and campaign, restart the service, and confirm they persist.
 - [ ] Configure encrypted backups and complete a test restore.
 - [ ] Configure host-level MFA, restricted admin access, dependency updates and monitoring.
 
 ## Not included in this prepared release
-- TOTP authenticator MFA inside the application.
-- Encrypted OAuth token vault or Google OAuth refresh-token lifecycle.
+- Provider-specific OAuth token refresh/rotation and integration with the encrypted generic vault.
+- Built-in MFA recovery codes (keep a secure backup of your authenticator device and APP_ENCRYPTION_KEY).
 - Official social provider OAuth and publishing adapters.
 - Live Adsterra/Monetag earnings APIs.
 - Hosted AI model integration; current AI utilities are local rule-based helpers and draft planning.
