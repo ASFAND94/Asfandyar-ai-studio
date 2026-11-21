@@ -57,8 +57,14 @@ GitHub Actions runs dependency installation, compilation, unit tests and API smo
 ## Security
 
 - One owner account; no public registration.
-- Passwords are salted and hashed with PBKDF2-HMAC-SHA256.
-- Session tokens are random; only SHA-256 digests are stored.
-- Login attempts are rate-limited; state-changing API calls require CSRF protection.
+- Passwords are salted and hashed with PBKDF2-HMAC-SHA256 (310,000 iterations).
+- Random session tokens are stored only as SHA-256 digests; session cookies are HttpOnly and SameSite=Strict.
+- Login is temporarily locked after five failed attempts for the client key.
+- State-changing API calls require CSRF validation.
+- Security headers include CSP, frame denial, no-sniff, no-referrer, restrictive Permissions Policy, no-store and HSTS on HTTPS.
+- Owner-only audit log records successful/failed logins, logout, password changes, CSRF failures and mutating API requests; client identifiers are one-way fingerprints and logs are capped.
+- Password changes revoke all active sessions.
+- Mandatory owner approval cannot be disabled; global publishing starts OFF.
 - Keep `.env`, passwords, setup keys and OAuth secrets out of GitHub.
+- **Not yet implemented:** TOTP authenticator 2FA, encrypted OAuth token vault, external security monitoring and automated encrypted off-site backups. Do not treat this MVP as audited or production-hardened.
 - The Windows quick-start binds to `127.0.0.1` over HTTP. It is for local testing only, not public deployment.
