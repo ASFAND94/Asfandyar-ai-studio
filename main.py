@@ -234,7 +234,7 @@ def features():
     return {
         "features": [
             "Private single-owner login with secure sessions",
-            "Per-platform multi-account registry (5 account slots each)",
+            "Separate Facebook profile and Facebook Page registries; up to 10 account slots per platform",
             "AI-assisted content planning",
             "Content draft management",
             "SEO and keyword analysis",
@@ -251,6 +251,7 @@ def features():
 def social_platforms():
     return {
         "max_accounts_per_platform": MAX_ACCOUNTS_PER_PLATFORM,
+        "facebook_account_types": {"facebook_profile": "Personal Facebook profiles", "facebook_page": "Facebook Pages"},
         "platforms": sorted(SUPPORTED_PLATFORMS),
         "limits": social_accounts.account_limits(),
         "note": "Registered account slots are not authenticated platform connections. Official OAuth is required.",
