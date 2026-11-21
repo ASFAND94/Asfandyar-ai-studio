@@ -29,6 +29,13 @@ class SQLiteTestStore:
                 website_url TEXT NOT NULL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE TABLE monetization_link_settings (
+                provider TEXT PRIMARY KEY,
+                direct_link_url TEXT NOT NULL DEFAULT '',
+                placement TEXT NOT NULL DEFAULT 'end_article',
+                enabled INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
             CREATE TABLE analytics_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 record_date TEXT NOT NULL,
@@ -72,6 +79,23 @@ class D1MarketingRepositoryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_empty_content_is_rejected(self):
         self.assertIsNone(await self.content.create_content("", "body"))
+
+    async def test_enabled_monetization_links_are_inserted_only_in_blogger_drafts(self):
+        await self.store.execute(
+            """INSERT INTO monetization_link_settings
+               (provider, direct_link_url, placement, enabled)
+               VALUES (?, ?, ?, ?)""",
+            "adsterra", "https://example.com/ad", "after_intro", 1,
+        )
+        blogger = await self.content.create_content(
+            "Blogger article", "Intro paragraph\\n\\nSecond paragraph", "blogger"
+        )
+        self.assertIn('rel="sponsored nofollow noopener noreferrer"', blogger["body"])
+        self.assertIn("https://example.com/ad", blogger["body"])
+        social = await self.content.create_content(
+            "Social post", "A social post body", "facebook"
+        )
+        self.assertNotIn("example.com/ad", social["body"])
 
     async def test_campaigns_persist(self):
         campaign = await self.campaigns.create_campaign(
