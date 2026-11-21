@@ -1,44 +1,51 @@
 # Asfandyar AI Studio
 
-Private, owner-controlled digital marketing manager. The project is designed to prefer free/open-source services and to require the owner's approval before external publishing.
+Private, owner-controlled digital marketing manager. The project prefers free/open-source services and keeps publishing disabled until the owner explicitly enables it.
 
-## Security and first-time setup
+## Quick start on Windows (local testing)
 
-1. Deploy only behind HTTPS. Do not expose the application directly to the public internet without a TLS reverse proxy and firewall.
-2. Copy `env.example` to `.env` on the server. Never upload `.env` to GitHub.
-3. Generate a unique one-time setup secret and set it as `ADMIN_SETUP_KEY`:
-   `python -c "import secrets; print(secrets.token_urlsafe(48))"`
-4. Keep `COOKIE_SECURE=true` in production. Set it to `false` only for local HTTP testing on your own computer.
-5. Install requirements and run:
-   `pip install -r requirements.txt`
-   `uvicorn main:app --host 127.0.0.1 --port 8000`
-6. Open `/app/` in your browser. The dashboard checks setup status automatically. You can also open `/auth/status` to check whether initial setup is required. Call `POST /auth/setup` once with the setup secret, your chosen username, and a unique password of at least 12 characters.
-7. Remove `ADMIN_SETUP_KEY` from the server environment after creating the admin. Then sign in through `POST /auth/login`.
-8. The login response includes a CSRF token. Send it in the `X-CSRF-Token` header for every state-changing request. The session cookie is HttpOnly, SameSite=Strict, Secure in production, and expires after eight hours.
-9. Change your password through `POST /auth/change-password`. This revokes all active sessions.
+1. Install Python 3.11 or newer from https://www.python.org/downloads/ and enable **Add Python to PATH**.
+2. Download the repository using GitHub's **Code → Download ZIP**, then extract it.
+3. Double-click `run_windows.bat`. It creates a local virtual environment, installs dependencies, creates a private `.env` file and starts the app.
+4. The first run prints a one-time setup key in the black terminal window. Keep it private.
+5. Open http://127.0.0.1:8000/app/ in your browser.
+6. Create your owner username and a unique password (minimum 12 characters), using the one-time setup key.
+7. After the owner account is created, stop the server with Ctrl+C. Open `.env`, delete the `ADMIN_SETUP_KEY=...` line, save, and run `run_windows.bat` again.
+8. Sign in with your own username and password.
 
-## Security controls currently implemented
+Keep the terminal window open while using the dashboard. This local server is only accessible from your own computer; it is not a public website.
 
-- One owner/admin account; no public registration.
+## Run tests
+
+In the extracted project folder, open Command Prompt and run:
+
+```bat
+.venv\Scripts\python.exe -m unittest discover -v
+```
+
+GitHub Actions also runs dependency installation, Python compilation, unit tests and dashboard/API smoke tests on every push.
+
+## Security and deployment
+
+- The Windows quick-start uses HTTP only on `127.0.0.1` for local testing. It is not suitable for public hosting.
+- For public deployment, use HTTPS behind a properly configured reverse proxy, firewall, secure environment variables, database backups and monitoring. Set `COOKIE_SECURE=true`.
+- Never commit `.env`, passwords, setup keys, OAuth secrets or access tokens to GitHub.
+- There is one owner account and no public registration.
 - Passwords are salted and hashed with PBKDF2-HMAC-SHA256 (310,000 iterations).
-- Random session tokens are stored only as SHA-256 digests in SQLite.
-- Login lockout after repeated failed attempts.
-- CSRF checks on state-changing authenticated requests.
-- Security response headers; HTTPS HSTS when served over HTTPS.
-- API documentation/OpenAPI routes disabled by default.
-- `.env`, local database, caches and secrets excluded from Git.
-- Global publishing switch defaults OFF and approval defaults ON.
+- Session tokens are random; only their SHA-256 digests are stored in SQLite.
+- Login attempts are rate-limited; state-changing API calls require CSRF protection.
+- Security response headers are enabled; API docs/OpenAPI are disabled by default.
 
-## Owner controls and social account settings
+## Current dashboard features
 
-- Seven social platforms are supported in the account registry: Facebook, Instagram, X, YouTube, LinkedIn, TikTok and Pinterest.
-- Each platform has a separate limit of five account slots.
-- Each account can have its own owner-selected niche, allowed content formats and publishing preference.
-- Publishing is not implemented merely by registering an account. Official OAuth/API access, provider permissions and a secure encrypted token store are required before any real publishing can be enabled.
-- Do not paste passwords, access tokens, app secrets or recovery codes into GitHub, chat, or ordinary account fields.
+- Private owner login, logout and password change.
+- Five independent account slots per supported platform: Facebook, Instagram, X, YouTube, LinkedIn, TikTok and Pinterest.
+- Each registered account has its own owner-selected niche, content formats and publishing approval preference.
+- Global publishing control defaults OFF; approval defaults ON.
+- Account registration and niche settings are saved in SQLite.
 
-## Important current limitations
+## Important limitations — not yet a complete automation service
 
-A minimal browser owner dashboard is available at `/app/` for login, account registration, per-account niche preferences, global publishing controls and password changes. This is still an MVP, not a complete marketing automation product. Some existing content and analytics managers use in-memory storage. OAuth integrations, encrypted provider-token storage, video generation, scheduling, real multi-platform publishing, backups and production monitoring remain future work and must be tested before production use.
+Registering a social account does not connect it to the social platform. Official OAuth, provider permissions, encrypted OAuth token storage and provider-specific publishing APIs must be implemented and approved before real posts can be sent. AI content generation, video rendering, scheduling, Blogger publishing, Adsterra/Monetag live reporting, production backups and a full analytics pipeline are also not yet complete.
 
-Never use fake traffic, spam, or unauthorized automation. Never spend money without the owner's explicit permission.
+Some legacy content/analytics managers still use in-memory storage. Do not use this MVP for public production hosting or real social account credentials yet. Never buy traffic, generate fake engagement, spam, or automate actions contrary to platform rules. No paid service should be enabled without the owner's explicit permission.
