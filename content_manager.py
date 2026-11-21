@@ -33,6 +33,16 @@ class ContentManager:
 
         return None
 
+    def mark_published(self, content_id, post=None):
+        for content in self.contents:
+            if content["id"] == content_id:
+                content["status"] = "published"
+                if post:
+                    content["external_post_id"] = post.get("id")
+                    content["external_url"] = post.get("url")
+                return content
+        return None
+
     def delete_content(self, content_id):
         self.contents = [
             content for content in self.contents
