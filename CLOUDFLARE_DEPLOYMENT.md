@@ -1,59 +1,74 @@
 # Cloudflare deployment preparation
 
-Status: **Cloudflare Worker shell and D1 social repository added; full dashboard is not yet ready to deploy.**
+Status: **Cloudflare backend and dashboard integration are implemented in this branch, but a live deployment is NOT verified or ready to enable until the owner's D1 database ID, setup secret, and free-tier authentication benchmark are resolved.**
 
-All changes are on the `cloudflare-deployment-prep` branch. The default `main` branch remains unchanged.
+All changes are on `cloudflare-deployment-prep`. The default `main` branch remains unchanged. Draft PR #4 remains open and unmerged.
 
-## Verified repository facts
+## Implemented in this branch
 
-- The existing application is a FastAPI service with a dashboard in `static/`.
-- `auth_manager.py` and `social_account_manager.py` use local Python `sqlite3` files.
-- Content drafts, campaigns, and analytics currently use process memory.
-- The existing `main.py` creates the SQLite managers at import time, so it must not be imported by the Worker until those managers have been migrated.
-- The local Windows/Uvicorn workflow should remain supported.
+- `cloudflare_worker.py`: Cloudflare Python Worker entrypoint using the official `workers.asgi.entrypoint(app)` adapter.
+- `cloudflare_app.py`: separate Cloudflare FastAPI application. It does not import the local SQLite-backed `main.py`.
+- `cloudflare_d1.py`: async D1 adapter using prepared statements and bound parameters, reading the documented ASGI `request.scope["env"]` binding.
+- `migrations/0001_initial.sql`: owner authentication/session tables, login attempts, social accounts/preferences, owner controls, content drafts, campaigns, analytics.
+- `migrations/0002_integrations_and_limits.sql`: database-enforced 10-slot-per-platform limit, Blogger URL settings, and separate Adsterra/Monetag link settings (both disabled by default).
+- `cloudflare_social_repository.py`: persistent social account registry, account limits, preferences and owner controls.
+- `cloudflare_marketing_repository.py`: persistent content drafts, campaign plans, manual analytics, Blogger settings, and separate Monetag/Adsterra URL settings.
+- `cloudflare_app.py` API routes: owner setup/login/logout/password change, session and CSRF checks, account management, content drafts, SEO/keyword analysis, campaign plans, analytics and integration settings.
+- Blogger drafts receive enabled HTTPS Adsterra/Monetag links at the owner's selected position. This only changes the saved draft HTML; it does not publish the post to Blogger.
+- `static/manifest.webmanifest` and `static/sw.js`: installable PWA metadata and offline caching for the dashboard shell. API calls still require a network connection.
+- `wrangler.jsonc.example`: Cloudflare Worker + Static Assets + D1 configuration template.
+- Tests cover the D1 repositories with SQLite stand-ins and validate the SQL migrations locally. These are not a substitute for running PyWrangler and real D1.
 
-## Added in this branch
+## What is not connected yet
 
-- `migrations/0001_initial.sql`: initial D1 schema for owner authentication, sessions, login attempts, social account slots/preferences, owner controls, content drafts, campaigns, and analytics.
-- `cloudflare_d1.py`: async D1 adapter using prepared statements and bound parameters. It obtains the D1 binding from FastAPI's documented ASGI request scope (`request.scope["env"]`).
-- `cloudflare_social_repository.py`: async D1-backed social-account repository, kept separate from the local SQLite manager.
-- `cloudflare_marketing_repository.py`: async D1 repositories for content drafts, traffic campaign plans, and manual analytics.
-- `cloudflare_app.py`: isolated FastAPI worker shell with basic health endpoints; it does not import the current SQLite-backed `main.py`.
-- `cloudflare_worker.py`: Python Worker entrypoint using Cloudflare's documented `asgi.fetch(app, request, self.env)` pattern.
-- `pyproject.toml`: minimal Python Workers dependency manifest, separate from the local Windows `requirements.txt`.
-- Tests for the D1 adapter, social repository behavior, marketing repositories, and Worker shell.
-- The initial D1 SQL migration was executed against a local SQLite engine for syntax/schema validation; this does not replace a real Cloudflare D1 migration test.
+- Official OAuth connections and actual publishing to Facebook, Instagram, TikTok, YouTube, LinkedIn, X or Pinterest.
+- Blogger API authentication and actual post creation/updates.
+- Live Adsterra or Monetag earnings/analytics APIs. The dashboard only stores the owner's Direct Link URLs and manual analytics.
+- AI content generation using an external model API.
+- A persistent content calendar, background scheduler, retries, and automatic multi-account posting.
+- Import of the existing local SQLite database into D1.
 
-## Important scope boundary
+Do not describe an account slot as a connected account, a saved campaign as a running campaign, or a draft as a published post.
 
-The new D1 social repository is not wired into the existing dashboard routes yet. Authentication, content, campaign, and analytics still need their own durable D1 repositories and route wiring. The Cloudflare shell currently exposes health checks only; it is not the full dashboard.
+## Important zero-cost deployment blocker
 
-The existing SQLite database is not automatically copied to D1. Before switching, create a backup and implement/verify an explicit data migration.
+Cloudflare Workers Free currently lists a **10 ms CPU limit per request**. This app preserves the local app's PBKDF2-HMAC-SHA256 password hash at 310,000 iterations. That password verification may exceed 10 ms; it has not been benchmarked in PyWrangler. Do not lower the password hashing work factor just to force it onto the free plan. Before public deployment, benchmark setup/login on the actual free Worker runtime. If it exceeds the free CPU limit, keep the app local or adopt a properly reviewed free authentication alternative; do not enable a paid plan without explicit owner approval.
 
-## Next implementation steps
+Cloudflare's published Workers Free request allowance is 100,000 requests/day. D1 has separate quotas/limits. Check the current account dashboard before deployment and do not enable paid billing. See official limits and pricing references below.
 
-1. Run the GitHub Actions tests and resolve any failures.
-2. Test the D1 adapter and Worker entrypoint with Cloudflare's local runtime (PyWrangler), not only fake bindings.
-3. Add D1-backed authentication while preserving the current PBKDF2 password hashing, hashed session tokens, lockout, and CSRF protections.
-4. Wire the D1 social repository into API routes and test account limits and owner controls.
-5. Wire the content, campaign, and analytics repositories into API routes; verify insert IDs and persistence across Worker restarts.
-6. Migrate authentication carefully. Benchmark the current PBKDF2-HMAC-SHA256 310,000-iteration verification under the free Worker CPU limits before choosing the runtime implementation; do not weaken password hashing just to make it fit.
-7. Configure Workers Static Assets so the current dashboard paths work correctly.
-8. Create the actual D1 database in the owner's Cloudflare account, then place its real database ID into the Wrangler configuration. Do not invent or commit a placeholder ID.
-9. Only after local Worker smoke tests pass, prepare a deployment. No deployment has been performed.
+## Required owner-side setup before deployment
 
-## Runtime and security notes
+1. In Cloudflare, create a D1 database named `asfandyar-ai-studio-db`.
+2. Copy the real database ID into a local copy of `wrangler.jsonc.example`, save it as `wrangler.jsonc`, and never commit any secrets.
+3. Set `ADMIN_SETUP_KEY` as a Worker secret using Wrangler/Cloudflare dashboard. Never put it in source control.
+4. Install `uv` and Node.js on the Windows laptop, then run `uv sync` and `uv run pywrangler dev`.
+5. Apply migrations to the local D1 emulator first, verify `/health/storage`, test owner setup/login and the full dashboard, then benchmark password hashing.
+6. Only if every check passes and the free-tier CPU constraint is met, apply migrations remotely and deploy. No deployment or remote database creation has been performed by this repository change.
 
-Cloudflare's FastAPI guide demonstrates a WorkerEntrypoint calling `await asgi.fetch(app, request, self.env)`; the ASGI scope exposes the environment as `request.scope["env"]`. The D1 Python guide documents `await self.env.DB.prepare(...).bind(...).run()`. The code follows these documented patterns, but a real PyWrangler/D1 smoke test is still required.
+Example commands (after creating the real D1 database and local `wrangler.jsonc`):
+```powershell
+uv sync
+uv run pywrangler dev
+npx wrangler d1 migrations apply asfandyar-ai-studio-db --local
+# Remote migration and deploy are intentionally deferred until tests pass:
+# npx wrangler d1 migrations apply asfandyar-ai-studio-db --remote
+# uv run pywrangler deploy
+```
 
-- Publishing remains OFF by default; owner approval remains required.
-- Never commit `.env`, setup keys, passwords, session tokens, OAuth tokens, or provider credentials.
-- The D1 migration does not add live OAuth, social posting, Blogger publishing, AI generation, or Adsterra/Monetag earnings APIs.
-- Cloudflare has free usage allowances, but quotas and possible overages must be checked in the account before deployment. Do not enable paid billing or paid services without explicit owner approval.
+## Security and safety
+
+- One owner; no public registration.
+- PBKDF2-HMAC-SHA256 password hashing, random sessions stored as SHA-256 digests, login lockout, HttpOnly/Secure/SameSite cookies and CSRF validation.
+- Publishing is OFF globally and per account by default; owner approval is ON.
+- OAuth credentials and API keys are not stored in the new settings tables.
+- Never commit `.env`, setup keys, passwords, session tokens, OAuth tokens or provider credentials.
+- Do not enable automatic publishing until official provider OAuth, permissions, idempotency and a tested approval workflow exist.
 
 ## Official references
 
 - FastAPI on Python Workers: https://developers.cloudflare.com/workers/languages/python/packages/fastapi/
-- Query D1 from Python Workers: https://developers.cloudflare.com/d1/examples/query-d1-from-python-workers/
-- D1 binding API: https://developers.cloudflare.com/d1/worker-api/d1-database/
 - Python Workers: https://developers.cloudflare.com/workers/languages/python/
+- Query D1 from Python Workers: https://developers.cloudflare.com/d1/examples/query-d1-from-python-workers/
+- D1 migrations: https://developers.cloudflare.com/d1/reference/migrations/
+- D1 foreign keys: https://developers.cloudflare.com/d1/sql-api/foreign-keys/
+- Workers Free limits: https://developers.cloudflare.com/workers/platform/limits/
