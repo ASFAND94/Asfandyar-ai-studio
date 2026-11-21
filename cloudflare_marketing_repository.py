@@ -124,3 +124,63 @@ class D1AnalyticsRepository:
             "SELECT COALESCE(SUM(earnings), 0) AS total FROM analytics_records"
         )
         return round(float(row["total"]), 2)
+
+
+class D1IntegrationRepository:
+    """Owner-editable non-secret Blogger and monetization URL settings."""
+
+    PROVIDERS = {"adsterra", "monetag"}
+    PLACEMENTS = {"after_intro", "mid_article", "end_article"}
+
+    def __init__(self, store):
+        self.store = store
+
+    async def get_blogger(self):
+        row = await self.store.one(
+            "SELECT blog_url, updated_at FROM blogger_settings WHERE id = 1"
+        )
+        return row or {"blog_url": "", "updated_at": None}
+
+    async def set_blogger(self, blog_url):
+        await self.store.execute(
+            """INSERT INTO blogger_settings (id, blog_url)
+               VALUES (1, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                 blog_url=excluded.blog_url, updated_at=CURRENT_TIMESTAMP""",
+            blog_url,
+        )
+        return await self.get_blogger()
+
+    async def get_monetization(self, provider):
+        if provider not in self.PROVIDERS:
+            raise ValueError("Unsupported monetization provider.")
+        row = await self.store.one(
+            """SELECT provider, direct_link_url, placement, enabled, updated_at
+               FROM monetization_link_settings WHERE provider = ?""",
+            provider,
+        )
+        if row:
+            row["enabled"] = bool(row["enabled"])
+            return row
+        return {
+            "provider": provider, "direct_link_url": "",
+            "placement": "end_article", "enabled": False, "updated_at": None,
+        }
+
+    async def set_monetization(self, provider, direct_link_url, placement, enabled):
+        if provider not in self.PROVIDERS:
+            raise ValueError("Unsupported monetization provider.")
+        if placement not in self.PLACEMENTS:
+            raise ValueError("Unsupported link placement.")
+        await self.store.execute(
+            """INSERT INTO monetization_link_settings
+               (provider, direct_link_url, placement, enabled)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(provider) DO UPDATE SET
+                 direct_link_url=excluded.direct_link_url,
+                 placement=excluded.placement,
+                 enabled=excluded.enabled,
+                 updated_at=CURRENT_TIMESTAMP""",
+            provider, direct_link_url, placement, int(bool(enabled)),
+        )
+        return await self.get_monetization(provider)
