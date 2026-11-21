@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from ai_engine import AIEngine
 from analytics_manager import AnalyticsManager
 from auth_manager import AuthManager, SESSION_COOKIE
 from content_manager import ContentManager
@@ -43,6 +44,7 @@ seo_manager = SEOManager()
 traffic_manager = TrafficManager()
 social_accounts = SocialAccountManager()
 blogger_manager = BloggerManager()
+ai_engine = AIEngine()
 
 app.mount("/app", StaticFiles(directory=str(Path(__file__).resolve().parent / "static"), html=True), name="dashboard")
 
@@ -93,6 +95,11 @@ class OwnerControlsRequest(BaseModel):
 class ContentDraftRequest(BaseModel):
     title: str = Field(min_length=3, max_length=180)
     body: str = Field(min_length=10, max_length=50000)
+    platform: Literal["blogger", "facebook", "x", "pinterest"] = "blogger"
+
+
+class AIRequest(BaseModel):
+    topic: str = Field(min_length=3, max_length=2000)
     platform: Literal["blogger", "facebook", "x", "pinterest"] = "blogger"
 
 
@@ -506,6 +513,14 @@ def mark_content_ready(content_id: int):
     if content is None:
         raise HTTPException(status_code=404, detail="Content draft not found.")
     return {**content, "message": "Marked ready. This endpoint does not publish externally."}
+
+
+@app.post("/ai/generate")
+def generate_ai_draft(request: AIRequest):
+    result = ai_engine.generate_content(request.topic, request.platform)
+    if not result.get("success"):
+        return result
+    return {**result, "message": "Generated locally. Review and save as a draft; nothing is published automatically."}
 
 
 @app.post("/seo/analyze")
