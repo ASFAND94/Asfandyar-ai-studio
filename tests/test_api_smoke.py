@@ -47,6 +47,10 @@ class DashboardAPISmokeTests(unittest.TestCase):
         self.assertEqual(me.status_code, 200)
         self.assertTrue(me.json()["authenticated"])
 
+        security_log = self.client.get("/security/events")
+        self.assertEqual(security_log.status_code, 200)
+        self.assertTrue(any(event["event"] == "login_succeeded" for event in security_log.json()["events"]))
+
         account = self.client.post("/social/accounts", headers=headers, json={
             "platform": "instagram",
             "account_name": "Test page",
