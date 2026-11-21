@@ -49,3 +49,8 @@ GitHub Actions runs dependency installation, compilation, unit tests and API smo
 - Login attempts are rate-limited; state-changing API calls require CSRF protection.
 - Keep `.env`, passwords, setup keys and OAuth secrets out of GitHub.
 - The Windows quick-start binds to `127.0.0.1` over HTTP. It is for local testing only, not public deployment.
+
+
+## Cloudflare migration (in progress)
+
+A separate `cloudflare-deployment-prep` branch contains an isolated Python Worker shell, an initial D1 schema, a D1 storage adapter, and a D1-backed social-account repository. This is preparation work only: the existing dashboard is not yet connected to D1 and must not be treated as deployed. See [CLOUDFLARE_DEPLOYMENT.md](CLOUDFLARE_DEPLOYMENT.md) for the migration status and remaining validation steps. Do not deploy until the real D1 database binding is configured and the Cloudflare runtime tests pass.
