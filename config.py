@@ -8,7 +8,7 @@ APP_VERSION = "1.0.0"
 
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key")
+SECRET_KEY = os.getenv("SECRET_KEY", "")
 
 TIMEZONE = "Asia/Karachi"
 
