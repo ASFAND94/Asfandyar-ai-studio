@@ -68,7 +68,7 @@ async function loadAccounts(){
 function renderAccount(account,pref){
   const wrap=document.createElement("article");wrap.className="account";
   const head=document.createElement("div");head.className="account-head";
-  const title=document.createElement("div");title.className="account-name";title.textContent=account.platform.toUpperCase()+" · "+account.account_name+" ("+account.account_handle+")";
+  const title=document.createElement("div");title.className="account-name";const platformNames={facebook_profile:"FACEBOOK PROFILE",facebook_page:"FACEBOOK PAGE"};title.textContent=(platformNames[account.platform]||account.platform.toUpperCase())+" · "+account.account_name+" ("+account.account_handle+")";
   const status=document.createElement("span");status.className="tag";status.textContent=account.status.replaceAll("_"," ");head.append(title,status);wrap.append(head);
   const fields=document.createElement("div");fields.className="account-settings";
   const nicheLabel=document.createElement("label");nicheLabel.textContent="Your chosen niche";
