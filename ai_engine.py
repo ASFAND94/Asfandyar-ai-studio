@@ -32,7 +32,7 @@ class AIEngine:
             if not text:
                 return {"success": False, "status": "empty", "message": "The local model returned an empty response."}
             return {"success": True, "status": "generated", "model": self.model, "platform": platform, "content": text}
-        except requests.RequestException:
+        except (requests.RequestException, OSError):
             return {
                 "success": False,
                 "status": "local_model_unavailable",
