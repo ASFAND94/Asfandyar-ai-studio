@@ -49,3 +49,12 @@ GitHub Actions runs dependency installation, compilation, unit tests and API smo
 - Login attempts are rate-limited; state-changing API calls require CSRF protection.
 - Keep `.env`, passwords, setup keys and OAuth secrets out of GitHub.
 - The Windows quick-start binds to `127.0.0.1` over HTTP. It is for local testing only, not public deployment.
+
+
+## Cloudflare version (in progress; not deployed)
+
+The `cloudflare-deployment-prep` branch now includes a D1-backed FastAPI API, persistent account/content/campaign/analytics stores, owner authentication, Blogger URL and separate Adsterra/Monetag Direct Link settings, Blogger draft link insertion, and installable PWA assets. The Cloudflare Worker serves the dashboard at `/app/`.
+
+It is still **not verified as a live Cloudflare deployment**. The real D1 database ID and Worker setup secret must be configured by the owner, and the free-tier CPU limit must be benchmarked against the existing 310,000-iteration PBKDF2 login. Cloudflare Workers Free currently allows 10 ms CPU per request, so deployment may not meet the zero-cost requirement without a reviewed authentication alternative. See [CLOUDFLARE_DEPLOYMENT.md](CLOUDFLARE_DEPLOYMENT.md) before proceeding.
+
+The dashboard can store Monetag/Adsterra URLs and insert enabled links into Blogger article drafts, but it does not publish to Blogger or social accounts. Social OAuth, live provider analytics, AI model integration, persistent post scheduling and automatic posting are not yet implemented.

@@ -8,7 +8,7 @@ async function initialize(){try{const s=await api("/auth/status");if(s.setup_req
 $("setup-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/auth/setup",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});e.currentTarget.reset();showLogin(false);msg("auth-message","Owner created. Remove ADMIN_SETUP_KEY from .env and restart before signing in.")}catch(x){msg("auth-message",x.message,true)}});
 $("login-form").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});csrfToken=d.csrf_token;sessionStorage.setItem("asfandyar_csrf",csrfToken);e.currentTarget.reset();showDashboard()}catch(x){msg("auth-message",x.message,true)}});
 $("logout").addEventListener("click",async()=>{try{await api("/auth/logout",{method:"POST",body:"{}"})}catch(_){}csrfToken="";sessionStorage.removeItem("asfandyar_csrf");showLogin(false)});
-document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".tab-panel").forEach(x=>x.classList.toggle("hidden",x.id!=="tab-"+b.dataset.tab));if(b.dataset.tab==="content")loadDrafts();if(b.dataset.tab==="growth")loadCampaigns();if(b.dataset.tab==="analytics")loadAnalytics()}));
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".tab-panel").forEach(x=>x.classList.toggle("hidden",x.id!=="tab-"+b.dataset.tab));if(b.dataset.tab==="content")loadDrafts();if(b.dataset.tab==="growth")loadCampaigns();if(b.dataset.tab==="analytics")loadAnalytics();if(b.dataset.tab==="integrations")loadIntegrationSettings()}));
 async function loadAll(){await Promise.all([loadAccounts(),loadControls()])}
 async function loadControls(){try{const d=await api("/control/settings");$("global-publish").checked=d.global_publishing_enabled;$("global-approval").checked=d.require_approval}catch(e){msg("account-message",e.message,true)}}
 $("save-global").addEventListener("click",async()=>{try{const d=await api("/control/settings",{method:"PUT",body:JSON.stringify({global_publishing_enabled:$("global-publish").checked,require_approval:$("global-approval").checked})});msg("account-message","Settings saved. Publishing is "+(d.settings.global_publishing_enabled?"ON":"OFF")+".")}catch(e){msg("account-message",e.message,true)}});
@@ -16,7 +16,7 @@ $("account-form").addEventListener("submit",async e=>{e.preventDefault();try{awa
 $("refresh").addEventListener("click",loadAccounts);
 async function loadAccounts(){try{const d=await api("/social/accounts");$("limits").replaceChildren();Object.entries(d.limits).forEach(([k,v])=>{const s=document.createElement("span");s.className="limit";s.textContent=k.replaceAll("_"," ")+" "+v.used+"/"+v.limit;$("limits").append(s)});const root=$("accounts");root.replaceChildren();if(!d.accounts.length){root.textContent="No accounts registered yet.";return}for(const a of d.accounts){const p=await api("/social/accounts/"+a.id+"/preferences");root.append(renderAccount(a,p))}}catch(e){msg("account-message",e.message,true)}}
 function renderAccount(a,p){const w=document.createElement("article");w.className="account";const h=document.createElement("div");h.className="account-head";const t=document.createElement("strong");t.textContent=a.platform.replaceAll("_"," ").toUpperCase()+" · "+a.account_name+" ("+a.account_handle+")";const st=document.createElement("span");st.className="tag";st.textContent=a.status.replaceAll("_"," ");h.append(t,st);w.append(h);const g=document.createElement("div");g.className="account-settings";const nl=document.createElement("label");nl.textContent="Niche";const n=document.createElement("input");n.value=p.niche;n.maxLength=160;n.placeholder="Your chosen niche";nl.append(n);const fl=document.createElement("label");fl.textContent="Formats: post, video, reel, story, short, article";const f=document.createElement("input");f.value=p.content_formats.join(", ");fl.append(f);const el=document.createElement("label");el.className="inline-check";const en=document.createElement("input");en.type="checkbox";en.checked=p.publishing_enabled;el.append(en,document.createTextNode("Account publishing allowed"));const al=document.createElement("label");al.className="inline-check";const ap=document.createElement("input");ap.type="checkbox";ap.checked=p.require_approval;al.append(ap,document.createTextNode("Approval required"));g.append(nl,fl,el,al);w.append(g);const acts=document.createElement("div");acts.className="account-actions";const save=document.createElement("button");save.textContent="Save settings";save.onclick=async()=>{try{const formats=f.value.split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);await api("/social/accounts/"+a.id+"/preferences",{method:"PUT",body:JSON.stringify({niche:n.value,content_formats:formats,publishing_enabled:en.checked,require_approval:ap.checked})});msg("account-message","Saved "+a.account_name)}catch(e){msg("account-message",e.message,true)}};const del=document.createElement("button");del.className="secondary";del.textContent="Remove";del.onclick=async()=>{if(confirm("Remove this account slot?"))try{await api("/social/accounts/"+a.id,{method:"DELETE",body:"{}"});loadAccounts()}catch(e){msg("account-message",e.message,true)}};acts.append(save,del);w.append(acts);return w}
-$("content-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/content",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});e.currentTarget.reset();msg("content-message","Draft saved locally.");loadDrafts()}catch(x){msg("content-message",x.message,true)}});
+$("content-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/content",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});e.currentTarget.reset();msg("content-message","Draft saved. Enabled Adsterra/Monetag links are inserted in Blogger drafts; nothing is published automatically.");loadDrafts()}catch(x){msg("content-message",x.message,true)}});
 $("load-drafts").addEventListener("click",loadDrafts);
 async function loadDrafts(){try{const d=await api("/content");const root=$("drafts");root.replaceChildren();if(!d.length){root.textContent="No drafts saved yet.";return}d.forEach(x=>{const a=document.createElement("article");a.className="draft";const h=document.createElement("h3");h.textContent=x.title||"Untitled";const p=document.createElement("p");p.textContent=(x.body||"").slice(0,420);const m=document.createElement("small");m.textContent="Destination: "+(x.platform||"");a.append(h,p,m);root.append(a)})}catch(e){$("drafts").textContent=e.message}}
 $("seo-form").addEventListener("submit",async e=>{e.preventDefault();try{$("seo-result").textContent=JSON.stringify(await api("/seo/analyze",{method:"POST",body:JSON.stringify(formData(e.currentTarget))}),null,2)}catch(x){$("seo-result").textContent=x.message}});
@@ -27,4 +27,35 @@ $("analytics-form").addEventListener("submit",async e=>{e.preventDefault();const
 $("refresh-analytics").addEventListener("click",loadAnalytics);
 async function loadAnalytics(){try{const d=await api("/analytics/summary");const root=$("analytics-summary");root.replaceChildren();const p=document.createElement("p");p.className="metric";p.textContent="Total recorded earnings: "+Number(d.total_earnings||0).toFixed(2);const q=document.createElement("p");q.textContent="Records: "+d.record_count;root.append(p,q);(d.records||[]).forEach(r=>{const x=document.createElement("p");x.className="draft";x.textContent=JSON.stringify(r);root.append(x)})}catch(e){$("analytics-summary").textContent=e.message}}
 $("password-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/auth/change-password",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});csrfToken="";sessionStorage.removeItem("asfandyar_csrf");e.currentTarget.reset();showLogin(false);msg("auth-message","Password changed. Sign in again.")}catch(x){msg("password-message",x.message,true)}});
-initialize();
+
+async function loadIntegrationSettings(){
+  try{
+    const [blog,ad,mon]=await Promise.all([
+      api("/integrations/blogger"),
+      api("/integrations/monetization/adsterra"),
+      api("/integrations/monetization/monetag")
+    ]);
+    $("blogger-settings-form").elements.blog_url.value=blog.blog_url||"";
+    for(const [provider,data] of [["adsterra",ad],["monetag",mon]]){
+      const form=$(provider+"-settings-form");
+      form.elements.direct_link_url.value=data.direct_link_url||"";
+      form.elements.placement.value=data.placement||"end_article";
+      form.elements.enabled.checked=!!data.enabled;
+    }
+  }catch(e){msg("blogger-message",e.message,true)}
+}
+$("blogger-settings-form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  try{await api("/integrations/blogger",{method:"PUT",body:JSON.stringify(formData(e.currentTarget))});msg("blogger-message","Blogger URL saved. Live Blogger publishing is not connected yet.");}
+  catch(x){msg("blogger-message",x.message,true)}
+});
+for(const provider of ["adsterra","monetag"]){
+  $(provider+"-settings-form").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const form=e.currentTarget;
+    const data={direct_link_url:form.elements.direct_link_url.value,placement:form.elements.placement.value,enabled:form.elements.enabled.checked};
+    try{await api("/integrations/monetization/"+provider,{method:"PUT",body:JSON.stringify(data)});msg(provider+"-message","Settings saved. Link insertion is not yet active in published Blogger posts.");}
+    catch(x){msg(provider+"-message",x.message,true)}
+  });
+}
+\ninitialize();

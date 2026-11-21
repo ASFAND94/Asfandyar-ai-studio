@@ -1,0 +1,11 @@
+{
+  "name": "Asfandyar AI Studio",
+  "short_name": "Asfandyar AI",
+  "description": "Private owner-controlled digital marketing workspace",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "background_color": "#080d19",
+  "theme_color": "#080d19",
+  "orientation": "any"
+}
