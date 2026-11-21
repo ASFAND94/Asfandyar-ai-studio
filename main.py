@@ -200,7 +200,7 @@ def setup_admin(request: SetupRequest):
 @app.post("/auth/login")
 def login(request: LoginRequest, http_request: Request, response: Response):
     client_key = http_request.client.host if http_request.client else "unknown"
-    if security_manager.mfa_enabled() and not security_manager.verify_owner_totp(request.totp_code or ""):
+    if security_manager.mfa_enabled() and not security_manager.verify_owner_totp(request.totp_code or "", client_key):
         raise HTTPException(status_code=401, detail="Invalid username, password, or authenticator code.")
     try:
         result = auth.login(request.username, request.password, client_key)
@@ -257,7 +257,7 @@ def mfa_disable(request: MFADisableRequest, http_request: Request, response: Res
     try:
         if not auth.verify_owner_password(request.password):
             raise HTTPException(status_code=403, detail="Password or authenticator code is incorrect.")
-        if not security_manager.verify_owner_totp(request.code):
+        if not security_manager.verify_owner_totp(request.code, http_request.client.host if http_request.client else "unknown"):
             raise HTTPException(status_code=403, detail="Password or authenticator code is incorrect.")
         security_manager.disable_totp()
         auth.revoke_all_sessions()
