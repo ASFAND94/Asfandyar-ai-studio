@@ -1,10 +1,11 @@
 import json
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
-DB_PATH = Path(__file__).resolve().parent / "asfandyar.db"
+DB_PATH = Path(os.getenv("SOCIAL_DB_PATH", str(Path(__file__).resolve().parent / "asfandyar.db")))
 
 SUPPORTED_PLATFORMS = {
     "facebook", "instagram", "x", "youtube",
