@@ -1,70 +1,63 @@
 # Asfandyar AI Studio
 
-Private, owner-controlled digital marketing workspace. Built to prefer free/open-source tools. Publishing stays OFF by default and nothing is sent to external platforms by this MVP.
+Private, owner-controlled digital marketing workspace with a responsive installable Android-style PWA. The project prioritizes free/open-source tools and does not activate paid services. External publishing is disabled by default and requires an authenticated owner action plus an approved draft.
+
+## Included features
+
+- Private single-owner setup, login, logout and password change.
+- PBKDF2-HMAC-SHA256 password hashing, random opaque sessions, HttpOnly/SameSite cookies, CSRF checks and login lockout.
+- Security response headers, owner-only security activity log and mandatory approval controls.
+- SQLite-persisted content drafts, campaign records, analytics and social-account registry.
+- Separate Facebook Profile and Facebook Page account types; up to ten account slots per supported platform.
+- Content draft management, SEO checks, keyword suggestions, traffic campaign planning and manual analytics with CTR/CPM/RPM.
+- Blogger API publishing route, gated by the global OFF switch and explicit draft approval; requires valid private server-side credentials.
+- Installable PWA shell with conservative static-asset caching; private API responses are not cached.
+- Windows local launcher, Dockerfile, Docker Compose with persistent database volume, deployment and backup instructions.
 
 ## Run on Windows
 
 1. Install Python 3.11+ from https://www.python.org/downloads/ and enable **Add Python to PATH**.
-2. Download this repository with GitHub **Code → Download ZIP**, then extract it.
-3. Double-click `run_windows.bat`. It creates a virtual environment, installs dependencies, creates a local `.env` and starts the server.
-4. Copy the one-time setup key printed in the terminal. Keep it private.
-5. Open http://127.0.0.1:8000/app/ in your browser.
-6. Create the owner account using the setup key, a username and a password of at least 12 characters.
-7. After successful setup, stop the server with Ctrl+C. Open `.env`, remove the `ADMIN_SETUP_KEY=...` line, save, then run `run_windows.bat` again.
-8. Sign in with your owner username and password.
+2. Download the repository using GitHub **Code → Download ZIP**, then extract it.
+3. Double-click `run_windows.bat`. It creates a virtual environment, installs requirements, creates a private local `.env` and starts the server.
+4. Keep the one-time setup key printed in the terminal private.
+5. Open http://127.0.0.1:8000/app/ and create your owner account with the setup key, a unique username and a strong password of at least 12 characters.
+6. Stop the server with Ctrl+C, remove `ADMIN_SETUP_KEY` from the local `.env`, save, then restart with `run_windows.bat`.
+7. Keep the terminal open while using the local application.
 
-Keep the terminal open while using the dashboard. The local server is only accessible from your computer.
+This launcher binds to localhost and is for local testing. It is not a public internet server.
 
-## Install as an Android-style app (PWA)
+## Install on Android
 
-The dashboard now includes a Progressive Web App shell. When served from **HTTPS** (or localhost for local testing), supported browsers can install it from the browser's install prompt or menu.
+The PWA must be served from HTTPS for installation on a real hosted domain (localhost is permitted for local development). Open `/app/` in Chrome on Android, then choose **Install app** or **Add to Home screen** from the browser menu. On iOS, use Safari → Share → Add to Home Screen.
 
-1. Open the dashboard at `/app/` in Chrome on Android.
-2. Sign in to your private owner workspace.
-3. If the **Install app** button appears, tap it. Otherwise open Chrome's ⋮ menu and choose **Install app** or **Add to Home screen**.
-4. Launch Asfandyar AI Studio from the new home-screen icon.
+The service worker caches only the static app shell. It does not cache API responses, login sessions, drafts, accounts or analytics. Offline mode does not provide live application functionality. This is an installable web app, not an APK or Play Store release.
 
-On iPhone/iPad, open the site in Safari, tap Share, then **Add to Home Screen**. Browser support and wording can vary.
+## Docker deployment
 
-The service worker caches only the static app shell (HTML, CSS, JavaScript, manifest and icon). It does **not** cache API responses, login sessions, drafts, account records, analytics or other private data. Offline mode therefore provides the app shell only; signing in and using live features still requires the server and a network connection. This is an installable web app, not a Play Store APK.
-
-## Dashboard modules
-
-- Private owner login, logout and password change.
-- Separate Facebook Profile and Facebook Page registries.
-- Ten independent account slots per supported platform: Facebook Profile, Facebook Page, Instagram, X, YouTube, LinkedIn, TikTok and Pinterest.
-- Per-account niche, content formats and approval preferences.
-- Global publishing safety switch (OFF by default).
-- Save and review content drafts.
-- Basic SEO and keyword analysis.
-- Traffic campaign planning.
-- Manual analytics record entry and summary.
-
-## Important limitations
-
-This is a local MVP and test dashboard, not a complete automation service. Registering an account slot does **not** connect or authenticate a social account. Official OAuth, encrypted token storage, provider permissions and platform-specific publishing adapters are not implemented. The dashboard does not yet generate AI content, publish to Blogger/social platforms, schedule posts, or fetch live Adsterra/Monetag earnings. SEO/keyword and analytics functions are starter utilities/manual records, not live third-party data.
-
-Do not enter social passwords or API tokens into this app. Do not use it for public production hosting. Real publishing requires official API access and platform policy compliance. Never buy traffic, generate fake engagement, or spam. No paid service should be enabled without the owner's explicit permission.
+See [DEPLOYMENT.md](DEPLOYMENT.md). A persistent disk/volume and HTTPS are required for a public deployment. Docker Compose retains data in a named SQLite volume. Do not deploy to an ephemeral filesystem and assume records will survive restarts.
 
 ## Tests
 
-```bat
-.venv\Scripts\python.exe -m unittest discover -v
+Run locally:
+
+```bash
+python -m compileall -q .
+python -m unittest discover -v
 ```
 
-GitHub Actions runs dependency installation, compilation, unit tests and API smoke tests on pushes.
+GitHub Actions runs compilation, dependency installation and the automated test suite on pushes and pull requests.
 
-## Security
+## Important integration boundaries
 
-- One owner account; no public registration.
-- Passwords are salted and hashed with PBKDF2-HMAC-SHA256 (310,000 iterations).
-- Random session tokens are stored only as SHA-256 digests; session cookies are HttpOnly and SameSite=Strict.
-- Login is temporarily locked after five failed attempts for the client key.
-- State-changing API calls require CSRF validation.
-- Security headers include CSP, frame denial, no-sniff, no-referrer, restrictive Permissions Policy, no-store and HSTS on HTTPS.
-- Owner-only audit log records successful/failed logins, logout, password changes, CSRF failures and mutating API requests; client identifiers are one-way fingerprints and logs are capped.
-- Password changes revoke all active sessions.
-- Mandatory owner approval cannot be disabled; global publishing starts OFF.
-- Keep `.env`, passwords, setup keys and OAuth secrets out of GitHub.
-- **Not yet implemented:** TOTP authenticator 2FA, encrypted OAuth token vault, external security monitoring and automated encrypted off-site backups. Do not treat this MVP as audited or production-hardened.
-- The Windows quick-start binds to `127.0.0.1` over HTTP. It is for local testing only, not public deployment.
+- Social account slots are local registry records, not authenticated social accounts. Social OAuth and provider-specific publishing adapters are not implemented.
+- Blogger publishing uses the official API and needs a valid access token and blog ID supplied only through private server environment variables. OAuth refresh flow and an encrypted token vault are not included yet.
+- AI content generation currently provides prompt/draft assistance; no paid AI provider is called automatically.
+- Adsterra and Monetag earnings are manual analytics records. Live reporting APIs are not connected.
+- No automated traffic buying, fake engagement, spam or policy-violating automation is included.
+- Hosting free tiers may sleep or lack persistent storage. Verify current host limits/pricing before deployment; no paid service is enabled by this repository.
+
+## Security status
+
+Implemented security controls are an initial foundation, not a third-party audit or a guarantee of security. TOTP authenticator 2FA, encrypted OAuth token vault, automated encrypted off-site backups, external monitoring and penetration testing remain future hardening tasks. Do not enter social passwords into this app. Keep `.env`, database files, setup keys and provider credentials out of GitHub. Rotate any secret that is accidentally exposed.
+
+See [SECURITY.md](SECURITY.md), [DEPLOYMENT.md](DEPLOYMENT.md) and [BACKUP.md](BACKUP.md).
