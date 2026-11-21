@@ -2,7 +2,7 @@ name: Python security and account tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, cloudflare-deployment-prep]
   pull_request:
     branches: [main]
 
