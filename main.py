@@ -65,12 +65,12 @@ class AccountPreferencesRequest(BaseModel):
     niche: Optional[str] = Field(default=None, max_length=160)
     content_formats: Optional[list[Literal["post", "video", "reel", "story", "short", "article"]]] = None
     publishing_enabled: Optional[bool] = None
-    require_approval: Optional[bool] = None
+    require_approval: Literal[True] = True
 
 
 class OwnerControlsRequest(BaseModel):
     global_publishing_enabled: Optional[bool] = None
-    require_approval: Optional[bool] = None
+    require_approval: Literal[True] = True
 
 
 class ContentDraftRequest(BaseModel):
@@ -343,10 +343,13 @@ def get_owner_control_settings():
 
 @app.put("/control/settings")
 def update_owner_control_settings(request: OwnerControlsRequest):
-    settings = social_accounts.update_owner_controls(
-        global_publishing_enabled=request.global_publishing_enabled,
-        require_approval=request.require_approval,
-    )
+    try:
+        settings = social_accounts.update_owner_controls(
+            global_publishing_enabled=request.global_publishing_enabled,
+            require_approval=request.require_approval,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
     return {"settings": settings, "message": "Owner controls updated."}
 
 
