@@ -15,6 +15,19 @@ Private, owner-controlled digital marketing workspace. Built to prefer free/open
 
 Keep the terminal open while using the dashboard. The local server is only accessible from your computer.
 
+## Install as an Android-style app (PWA)
+
+The dashboard now includes a Progressive Web App shell. When served from **HTTPS** (or localhost for local testing), supported browsers can install it from the browser's install prompt or menu.
+
+1. Open the dashboard at `/app/` in Chrome on Android.
+2. Sign in to your private owner workspace.
+3. If the **Install app** button appears, tap it. Otherwise open Chrome's ⋮ menu and choose **Install app** or **Add to Home screen**.
+4. Launch Asfandyar AI Studio from the new home-screen icon.
+
+On iPhone/iPad, open the site in Safari, tap Share, then **Add to Home Screen**. Browser support and wording can vary.
+
+The service worker caches only the static app shell (HTML, CSS, JavaScript, manifest and icon). It does **not** cache API responses, login sessions, drafts, account records, analytics or other private data. Offline mode therefore provides the app shell only; signing in and using live features still requires the server and a network connection. This is an installable web app, not a Play Store APK.
+
 ## Dashboard modules
 
 - Private owner login, logout and password change.
