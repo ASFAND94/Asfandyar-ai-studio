@@ -68,6 +68,20 @@ class DashboardAPISmokeTests(unittest.TestCase):
         self.assertEqual(preferences.status_code, 200, preferences.text)
         self.assertEqual(preferences.json()["preferences"]["niche"], "AI education")
 
+        # Facebook profiles and Pages have independent 10-slot limits.
+        profile = self.client.post("/social/accounts", headers=headers, json={
+            "platform": "facebook_profile", "account_name": "Personal profile", "account_handle": "profile_one",
+        })
+        page = self.client.post("/social/accounts", headers=headers, json={
+            "platform": "facebook_page", "account_name": "Business Page", "account_handle": "page_one",
+        })
+        self.assertEqual(profile.status_code, 201, profile.text)
+        self.assertEqual(page.status_code, 201, page.text)
+        platform_info = self.client.get("/social/platforms").json()
+        self.assertEqual(platform_info["max_accounts_per_platform"], 10)
+        self.assertEqual(platform_info["limits"]["facebook_profile"]["used"], 1)
+        self.assertEqual(platform_info["limits"]["facebook_page"]["used"], 1)
+
         settings = self.client.get("/control/settings")
         self.assertEqual(settings.status_code, 200)
         self.assertFalse(settings.json()["global_publishing_enabled"])
