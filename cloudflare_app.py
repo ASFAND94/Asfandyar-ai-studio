@@ -10,6 +10,7 @@ import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
@@ -19,6 +20,7 @@ from cloudflare_d1 import D1Store
 from cloudflare_social_repository import D1SocialAccountRepository
 from cloudflare_marketing_repository import (
     D1AnalyticsRepository, D1CampaignRepository, D1ContentRepository,
+    D1IntegrationRepository,
 )
 from keyword_manager import KeywordManager
 from seo_manager import SEOManager
@@ -203,6 +205,16 @@ class CampaignRequest(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     platform: Literal["facebook", "x", "blogger", "pinterest"]
     website_url: str = Field(min_length=8, max_length=2048)
+
+
+class BloggerSettingsRequest(BaseModel):
+    blog_url: str = Field(default="", max_length=2048)
+
+
+class MonetizationSettingsRequest(BaseModel):
+    direct_link_url: str = Field(default="", max_length=2048)
+    placement: Literal["after_intro", "mid_article", "end_article"] = "end_article"
+    enabled: bool = False
 
 
 class AnalyticsRequest(BaseModel):
@@ -471,6 +483,45 @@ async def create_campaign(data: CampaignRequest, request: Request):
 async def list_campaigns(request: Request):
     _, _, campaigns, _ = repos(request)
     return await campaigns.get_campaigns()
+
+
+@app.get("/integrations/blogger")
+async def get_blogger_settings(request: Request):
+    settings = D1IntegrationRepository(store(request))
+    return await settings.get_blogger()
+
+
+@app.put("/integrations/blogger")
+async def update_blogger_settings(data: BloggerSettingsRequest, request: Request):
+    value = data.blog_url.strip()
+    if value:
+        parsed = urlparse(value)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise HTTPException(status_code=400, detail="Use a valid HTTPS Blogger URL.")
+    return await D1IntegrationRepository(store(request)).set_blogger(value)
+
+
+@app.get("/integrations/monetization/{provider}")
+async def get_monetization_settings(provider: str, request: Request):
+    try:
+        return await D1IntegrationRepository(store(request)).get_monetization(provider)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+
+
+@app.put("/integrations/monetization/{provider}")
+async def update_monetization_settings(provider: str, data: MonetizationSettingsRequest, request: Request):
+    value = data.direct_link_url.strip()
+    if value:
+        parsed = urlparse(value)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise HTTPException(status_code=400, detail="Use a valid HTTPS Direct Link URL.")
+    try:
+        return await D1IntegrationRepository(store(request)).set_monetization(
+            provider, value, data.placement, data.enabled
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 @app.post("/analytics/record", status_code=201)
