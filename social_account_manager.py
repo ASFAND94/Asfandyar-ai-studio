@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -23,10 +24,18 @@ class SocialAccountManager:
         self.db_path = Path(db_path) if db_path else DB_PATH
         self.initialize()
 
+    @contextmanager
     def connect(self):
         connection = sqlite3.connect(self.db_path)
         connection.row_factory = sqlite3.Row
-        return connection
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def initialize(self):
         with self.connect() as connection:
