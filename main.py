@@ -52,6 +52,18 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=12, max_length=256)
 
 
+class AccountPreferencesRequest(BaseModel):
+    niche: Optional[str] = Field(default=None, max_length=160)
+    content_formats: Optional[list[Literal["post", "video", "reel", "story", "short", "article"]]] = None
+    publishing_enabled: Optional[bool] = None
+    require_approval: Optional[bool] = None
+
+
+class OwnerControlsRequest(BaseModel):
+    global_publishing_enabled: Optional[bool] = None
+    require_approval: Optional[bool] = None
+
+
 class ContentDraftRequest(BaseModel):
     title: str = Field(min_length=3, max_length=180)
     body: str = Field(min_length=10, max_length=50000)
@@ -113,6 +125,11 @@ async def security_and_auth_middleware(request: Request, call_next):
     if request.url.scheme == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
+
+
+@app.get("/auth/status")
+def auth_status():
+    return {"setup_required": not auth.is_configured(), "login_required": True}
 
 
 @app.post("/auth/setup", status_code=201)
@@ -237,6 +254,44 @@ def add_social_account(request: SocialAccountRequest):
         raise HTTPException(status_code=409, detail=str(error))
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.get("/social/accounts/{account_id}/preferences")
+def get_social_account_preferences(account_id: int):
+    preferences = social_accounts.get_preferences(account_id)
+    if preferences is None:
+        raise HTTPException(status_code=404, detail="Social account not found.")
+    return preferences
+
+
+@app.put("/social/accounts/{account_id}/preferences")
+def update_social_account_preferences(account_id: int, request: AccountPreferencesRequest):
+    try:
+        preferences = social_accounts.update_preferences(
+            account_id, request.model_dump(exclude_unset=True)
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    if preferences is None:
+        raise HTTPException(status_code=404, detail="Social account not found.")
+    return {
+        "preferences": preferences,
+        "message": "Saved. The selected niche is owner-defined; publishing remains subject to the global safety switch and platform authorization.",
+    }
+
+
+@app.get("/control/settings")
+def get_owner_control_settings():
+    return social_accounts.get_owner_controls()
+
+
+@app.put("/control/settings")
+def update_owner_control_settings(request: OwnerControlsRequest):
+    settings = social_accounts.update_owner_controls(
+        global_publishing_enabled=request.global_publishing_enabled,
+        require_approval=request.require_approval,
+    )
+    return {"settings": settings, "message": "Owner controls updated."}
 
 
 @app.delete("/social/accounts/{account_id}")
