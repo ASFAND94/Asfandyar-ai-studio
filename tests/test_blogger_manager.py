@@ -13,9 +13,9 @@ class BloggerManagerTests(unittest.TestCase):
                     "blogger_blog_id": "blog-123",
                 }.get(name)
                 manager = BloggerManager()
-        self.assertEqual(manager.access_token, "private-token")
-        self.assertEqual(manager.blog_id, "blog-123")
-        self.assertTrue(manager.refresh_credentials())
+                self.assertEqual(manager.access_token, "private-token")
+                self.assertEqual(manager.blog_id, "blog-123")
+                self.assertTrue(manager.refresh_credentials())
 
 
 if __name__ == "__main__":
