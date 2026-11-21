@@ -52,8 +52,12 @@ class D1SocialAccountRepository:
             # D1 raises a runtime exception for the UNIQUE(platform, handle)
             # constraint. Do not hide unrelated storage failures.
             message = str(error).lower()
-            if "unique" in message or "constraint" in message:
+            if "unique" in message:
                 raise ValueError("This account handle is already registered.") from error
+            if "maximum of 10" in message or "slot limit" in message:
+                raise OverflowError("This platform already has 10 account slots.") from error
+            if "constraint" in message:
+                raise ValueError("The account could not be saved because it violates a database rule.") from error
             raise
 
         account = await self.store.one(
