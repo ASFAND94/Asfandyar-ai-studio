@@ -146,6 +146,11 @@ async def security_and_auth_middleware(request: Request, call_next):
                 return response
 
     response = await call_next(request)
+    if request.method not in {"GET", "HEAD", "OPTIONS"} and path not in {"/auth/login", "/auth/setup"}:
+        auth.record_security_event(
+            f"{request.method} {path} -> {response.status_code}",
+            request.client.host if request.client else "unknown"
+        )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
