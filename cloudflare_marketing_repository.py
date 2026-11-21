@@ -14,7 +14,7 @@ class D1ContentRepository:
             """SELECT provider, direct_link_url, placement
                FROM monetization_link_settings WHERE enabled = 1"""
         )
-        paragraphs = body.split("\\n\\n")
+        paragraphs = body.split("\n\n")
         insertions = {}
         for setting in settings:
             url = (setting.get("direct_link_url") or "").strip()
@@ -40,7 +40,7 @@ class D1ContentRepository:
             output.extend(insertions.get(index, []))
             if index < len(paragraphs):
                 output.append(paragraphs[index])
-        return "\\n\\n".join(output)
+        return "\n\n".join(output)
 
     async def create_content(self, title, body, platform="blogger"):
         if not title or not body:
