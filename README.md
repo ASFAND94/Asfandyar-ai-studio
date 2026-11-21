@@ -12,7 +12,7 @@ Private, owner-controlled digital marketing manager. The project is designed to 
 5. Install requirements and run:
    `pip install -r requirements.txt`
    `uvicorn main:app --host 127.0.0.1 --port 8000`
-6. Open `/auth/status` to check whether initial setup is required. Call `POST /auth/setup` once with the setup secret, your chosen username, and a unique password of at least 12 characters.
+6. Open `/app/` in your browser. The dashboard checks setup status automatically. You can also open `/auth/status` to check whether initial setup is required. Call `POST /auth/setup` once with the setup secret, your chosen username, and a unique password of at least 12 characters.
 7. Remove `ADMIN_SETUP_KEY` from the server environment after creating the admin. Then sign in through `POST /auth/login`.
 8. The login response includes a CSRF token. Send it in the `X-CSRF-Token` header for every state-changing request. The session cookie is HttpOnly, SameSite=Strict, Secure in production, and expires after eight hours.
 9. Change your password through `POST /auth/change-password`. This revokes all active sessions.
@@ -39,6 +39,6 @@ Private, owner-controlled digital marketing manager. The project is designed to 
 
 ## Important current limitations
 
-This repository is still an MVP/API backend, not a finished hosted dashboard. Some existing content and analytics managers use in-memory storage. OAuth integrations, encrypted provider-token storage, video generation, scheduling, real multi-platform publishing, backups, monitoring and a complete browser login dashboard remain future work and must be tested before production use.
+A minimal browser owner dashboard is available at `/app/` for login, account registration, per-account niche preferences, global publishing controls and password changes. This is still an MVP, not a complete marketing automation product. Some existing content and analytics managers use in-memory storage. OAuth integrations, encrypted provider-token storage, video generation, scheduling, real multi-platform publishing, backups and production monitoring remain future work and must be tested before production use.
 
 Never use fake traffic, spam, or unauthorized automation. Never spend money without the owner's explicit permission.
