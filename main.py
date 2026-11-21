@@ -19,6 +19,7 @@ from seo_manager import SEOManager
 from traffic_manager import TrafficManager
 from blogger_manager import BloggerManager
 from database import get_connection as get_app_db_connection
+import security_manager
 from social_account_manager import (
     SocialAccountManager,
     SUPPORTED_PLATFORMS,
@@ -55,6 +56,21 @@ class SetupRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str = Field(min_length=3, max_length=80)
     password: str = Field(min_length=1, max_length=256)
+    totp_code: Optional[str] = Field(default=None, min_length=6, max_length=6)
+
+
+class MFAConfirmRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=6)
+
+
+class MFADisableRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+    code: str = Field(min_length=6, max_length=6)
+
+
+class VaultSecretRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    value: str = Field(min_length=1, max_length=10000)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -184,6 +200,8 @@ def setup_admin(request: SetupRequest):
 @app.post("/auth/login")
 def login(request: LoginRequest, http_request: Request, response: Response):
     client_key = http_request.client.host if http_request.client else "unknown"
+    if security_manager.mfa_enabled() and not security_manager.verify_owner_totp(request.totp_code or ""):
+        raise HTTPException(status_code=401, detail="Invalid username, password, or authenticator code.")
     try:
         result = auth.login(request.username, request.password, client_key)
     except TimeoutError as error:
@@ -200,6 +218,80 @@ def login(request: LoginRequest, http_request: Request, response: Response):
         path="/",
     )
     return {"success": True, "username": result["username"], "csrf_token": result["csrf"], "expires_in_seconds": 28800}
+
+
+@app.get("/security/mfa/status")
+def mfa_status():
+    return {"enabled": security_manager.mfa_enabled()}
+
+
+@app.post("/security/mfa/enroll")
+def mfa_enroll():
+    try:
+        secret = security_manager.new_totp_enrollment()
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error))
+    issuer = "Asfandyar%20AI%20Studio"
+    account = "owner"
+    uri = f"otpauth://totp/{issuer}:{account}?secret={secret}&issuer={issuer}&algorithm=SHA1&digits=6&period=30"
+    return {"secret": secret, "otpauth_uri": uri, "message": "Add this secret to an authenticator app, then confirm with its current six-digit code. The secret is shown only during enrollment."}
+
+
+@app.post("/security/mfa/confirm")
+def mfa_confirm(request: MFAConfirmRequest):
+    try:
+        valid = security_manager.confirm_totp_enrollment(request.code)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error))
+    if not valid:
+        raise HTTPException(status_code=400, detail="Authenticator code is invalid. Try the current six-digit code.")
+    auth.record_security_event("totp_mfa_enabled", "owner")
+    return {"enabled": True, "message": "Authenticator MFA enabled. Future logins require password and authenticator code."}
+
+
+@app.post("/security/mfa/disable")
+def mfa_disable(request: MFADisableRequest, http_request: Request, response: Response):
+    session = auth.validate_session(http_request.cookies.get(SESSION_COOKIE))
+    if not session:
+        raise HTTPException(status_code=401, detail="Login required.")
+    try:
+        if not auth.verify_owner_password(request.password):
+            raise HTTPException(status_code=403, detail="Password or authenticator code is incorrect.")
+        if not security_manager.verify_owner_totp(request.code):
+            raise HTTPException(status_code=403, detail="Password or authenticator code is incorrect.")
+        security_manager.disable_totp()
+        auth.revoke_all_sessions()
+        auth.record_security_event("totp_mfa_disabled_all_sessions_revoked", "owner")
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error))
+    response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, samesite="strict")
+    return {"enabled": False, "message": "MFA disabled and all sessions revoked. Sign in again."}
+
+
+@app.get("/security/vault")
+def vault_list():
+    try:
+        return {"secrets": security_manager.list_secret_metadata()}
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error))
+
+
+@app.post("/security/vault", status_code=201)
+def vault_store(request: VaultSecretRequest):
+    try:
+        item = security_manager.put_secret(request.name, request.value)
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=503 if isinstance(error, RuntimeError) else 400, detail=str(error))
+    auth.record_security_event("encrypted_vault_secret_saved", "owner")
+    return {"secret": item, "message": "Encrypted secret saved. Its value is never returned by the API."}
+
+
+@app.delete("/security/vault/{name}")
+def vault_delete(name: str):
+    if not security_manager.delete_secret(name):
+        raise HTTPException(status_code=404, detail="Vault entry not found.")
+    auth.record_security_event("encrypted_vault_secret_deleted", "owner")
+    return {"success": True}
 
 
 @app.get("/security/events")
