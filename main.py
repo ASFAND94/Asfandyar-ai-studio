@@ -17,6 +17,7 @@ from content_manager import ContentManager
 from keyword_manager import KeywordManager
 from seo_manager import SEOManager
 from traffic_manager import TrafficManager
+from blogger_manager import BloggerManager
 from social_account_manager import (
     SocialAccountManager,
     SUPPORTED_PLATFORMS,
@@ -39,6 +40,7 @@ keyword_manager = KeywordManager()
 seo_manager = SEOManager()
 traffic_manager = TrafficManager()
 social_accounts = SocialAccountManager()
+blogger_manager = BloggerManager()
 
 app.mount("/app", StaticFiles(directory=str(Path(__file__).resolve().parent / "static"), html=True), name="dashboard")
 
@@ -245,6 +247,39 @@ def features():
             "Adsterra and Monetag reporting (official integration required)",
         ]
     }
+
+
+@app.get("/blogger/status")
+def blogger_status():
+    configured = bool(blogger_manager.access_token and blogger_manager.blog_id)
+    return {
+        "configured": configured,
+        "blog_id_configured": bool(blogger_manager.blog_id),
+        "access_token_configured": bool(blogger_manager.access_token),
+        "publish_ready": configured,
+        "note": "Uses the official Blogger API. Keep the access token on the private server; never put it in the browser or GitHub."
+    }
+
+
+@app.post("/content/{content_id}/publish-blogger")
+def publish_blogger_draft(content_id: int):
+    controls = social_accounts.get_owner_controls()
+    if not controls["global_publishing_enabled"]:
+        raise HTTPException(status_code=403, detail="Publishing is OFF. Enable the global publishing switch first.")
+    draft = next((item for item in content_manager.get_all_content() if item["id"] == content_id), None)
+    if draft is None:
+        raise HTTPException(status_code=404, detail="Content draft not found.")
+    if draft["platform"] != "blogger":
+        raise HTTPException(status_code=400, detail="This draft is not assigned to Blogger.")
+    if controls["require_approval"] and draft["status"] != "ready_to_publish":
+        raise HTTPException(status_code=403, detail="Owner approval required. Approve this draft before publishing.")
+    if not blogger_manager.access_token or not blogger_manager.blog_id:
+        raise HTTPException(status_code=503, detail="Blogger is not configured. Add BLOGGER_ACCESS_TOKEN and BLOGGER_BLOG_ID to the private server environment.")
+    result = blogger_manager.create_post(draft["title"], draft["body"])
+    if not result.get("success"):
+        raise HTTPException(status_code=502, detail=result.get("message", "Blogger API request failed."))
+    content_manager.mark_published(content_id, result.get("post", {}))
+    return {"success": True, "message": "Published to Blogger.", "post": result.get("post", {})}
 
 
 @app.get("/social/platforms")
