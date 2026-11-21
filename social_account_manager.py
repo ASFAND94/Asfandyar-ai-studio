@@ -20,6 +20,7 @@ class SocialAccountManager:
 
     Account slots are not authenticated provider connections. OAuth tokens
     must be obtained via official provider flows and encrypted at rest.
+    Owner approval is a mandatory invariant and cannot be disabled.
     """
 
     def __init__(self, db_path: Optional[Path] = None):
@@ -56,7 +57,6 @@ class SocialAccountManager:
                     UNIQUE(platform, account_handle)
                 )
             """)
-            # Keep old generic Facebook entries as personal-profile slots.
             connection.execute("UPDATE social_accounts SET platform = 'facebook_profile' WHERE platform = 'facebook'")
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS social_account_preferences (
@@ -82,11 +82,18 @@ class SocialAccountManager:
                 ('global_publishing_enabled', 'false'),
                 ('require_approval', 'true')
             """)
+            # Migrate any older preference/settings that had approval disabled.
+            connection.execute("UPDATE social_account_preferences SET require_approval = 1 WHERE require_approval != 1")
+            connection.execute("""
+                INSERT INTO owner_control_settings (setting_key, setting_value)
+                VALUES ('require_approval', 'true')
+                ON CONFLICT(setting_key) DO UPDATE SET setting_value='true'
+            """)
 
     def add_account(self, platform, account_name, account_handle):
         platform = platform.strip().lower()
         if platform == "facebook":
-            platform = "facebook_profile"  # Backward compatibility.
+            platform = "facebook_profile"
         account_name = account_name.strip()
         account_handle = account_handle.strip()
         if platform not in SUPPORTED_PLATFORMS:
@@ -171,11 +178,13 @@ class SocialAccountManager:
             result.update(dict(prefs))
             result["content_formats"] = json.loads(result["content_formats"])
             result["publishing_enabled"] = bool(result["publishing_enabled"])
-            result["require_approval"] = bool(result["require_approval"])
+            result["require_approval"] = True
             return result
 
     def update_preferences(self, account_id, changes):
         allowed_formats = {"post", "video", "reel", "story", "short", "article"}
+        if changes.get("require_approval") is False:
+            raise ValueError("Owner approval is mandatory and cannot be disabled.")
         with self.connect() as connection:
             exists = connection.execute(
                 "SELECT 1 FROM social_accounts WHERE id = ?", (account_id,)
@@ -197,9 +206,6 @@ class SocialAccountManager:
             enabled = changes.get(
                 "publishing_enabled", bool(current["publishing_enabled"])
             )
-            approval = changes.get(
-                "require_approval", bool(current["require_approval"])
-            )
             if niche is not None and len(niche) > 160:
                 raise ValueError("Niche must be 160 characters or fewer.")
             if not isinstance(formats, list) or not formats:
@@ -209,9 +215,9 @@ class SocialAccountManager:
             connection.execute("""
                 UPDATE social_account_preferences
                 SET niche = ?, content_formats = ?, publishing_enabled = ?,
-                    require_approval = ?, updated_at = CURRENT_TIMESTAMP
+                    require_approval = 1, updated_at = CURRENT_TIMESTAMP
                 WHERE account_id = ?
-            """, (niche or "", json.dumps(formats), int(enabled), int(approval), account_id))
+            """, (niche or "", json.dumps(formats), int(enabled), account_id))
         return self.get_preferences(account_id)
 
     def get_owner_controls(self):
@@ -224,11 +230,13 @@ class SocialAccountManager:
                 "global_publishing_enabled": values.get(
                     "global_publishing_enabled", "false"
                 ).lower() == "true",
-                "require_approval": values.get("require_approval", "true").lower() == "true",
+                "require_approval": True,
                 "owner_has_final_control": True,
             }
 
     def update_owner_controls(self, global_publishing_enabled=None, require_approval=None):
+        if require_approval is False:
+            raise ValueError("Owner approval is mandatory and cannot be disabled.")
         with self.connect() as connection:
             if global_publishing_enabled is not None:
                 connection.execute("""
@@ -236,12 +244,11 @@ class SocialAccountManager:
                     VALUES ('global_publishing_enabled', ?)
                     ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value
                 """, (str(bool(global_publishing_enabled)).lower(),))
-            if require_approval is not None:
-                connection.execute("""
-                    INSERT INTO owner_control_settings (setting_key, setting_value)
-                    VALUES ('require_approval', ?)
-                    ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value
-                """, (str(bool(require_approval)).lower(),))
+            connection.execute("""
+                INSERT INTO owner_control_settings (setting_key, setting_value)
+                VALUES ('require_approval', 'true')
+                ON CONFLICT(setting_key) DO UPDATE SET setting_value='true'
+            """)
         return self.get_owner_controls()
 
     def remove_account(self, account_id):

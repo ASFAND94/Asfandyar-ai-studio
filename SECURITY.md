@@ -7,7 +7,8 @@
 - Login sessions use cryptographically random opaque tokens; only token hashes are stored in SQLite.
 - Session cookie is HttpOnly, SameSite=Strict, eight-hour lifetime, and Secure by default.
 - State-changing requests require the CSRF token returned at login in the `X-CSRF-Token` header.
-- Five failed login attempts trigger a 15-minute lockout per client IP.
+- Five failed password attempts trigger a 15-minute lockout per client IP.
+- Optional authenticator-app TOTP MFA encrypts its seed using Fernet and rate-limits failed codes (five failures per client key trigger a 15-minute lockout).
 - Password changes revoke every active session.
 - Admin routes are protected; health, first-run setup, and login are the only public routes.
 - Security response headers are enabled. API docs are disabled by default.
@@ -25,6 +26,8 @@
 - HTTPS is mandatory for any internet-facing deployment. Do not set `COOKIE_SECURE=false` on a public server.
 - Restrict server, hosting, GitHub, and deployment credentials with MFA.
 - Keep repository secrets out of commits and rotate any secret accidentally exposed.
-- Add encrypted provider-token storage and provider-specific OAuth before enabling real social publishing.
+- An encrypted generic secret vault is available through the owner-only dashboard/API. It requires APP_ENCRYPTION_KEY and never returns saved secret values from list endpoints. Provider adapters must explicitly read only the needed vault entry; generic vault storage alone does not complete provider OAuth.
+- Generate APP_ENCRYPTION_KEY with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Back it up separately from the database. Losing it makes encrypted vault and MFA seeds unrecoverable.
+- Enable authenticator MFA from the Security tab after setting APP_ENCRYPTION_KEY. There are no built-in recovery codes in this release; keep the authenticator device and encryption-key backup safe.
 - Use a persistent private volume for `asfandyar.db`; ephemeral hosting storage will lose accounts and sessions.
 - This is an initial security foundation, not a completed third-party security audit. Test deployment, backups, dependency updates, and hosting configuration before putting real accounts or money at risk.

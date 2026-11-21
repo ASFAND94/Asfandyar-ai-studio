@@ -1,51 +1,79 @@
 # Asfandyar AI Studio
 
-Private, owner-controlled digital marketing workspace. Built to prefer free/open-source tools. Publishing stays OFF by default and nothing is sent to external platforms by this MVP.
+Private, owner-controlled digital marketing workspace with an installable Android-style PWA. The project prioritizes free/open-source tools and does not activate paid services. External publishing is OFF by default and every publish action requires owner approval.
 
-## Run on Windows
+## Implemented
+
+- FastAPI backend and responsive installable PWA.
+- Single-owner setup/login/logout/password change.
+- PBKDF2-HMAC-SHA256 password hashes, opaque sessions, HttpOnly/SameSite cookies, CSRF validation and login lockouts.
+- Optional authenticator-app TOTP MFA with failed-code throttling.
+- Fernet-encrypted credential vault; vault lists expose metadata only.
+- Owner-only security activity log and mandatory publishing approval.
+- SQLite persistence for drafts, campaigns, analytics and social-account registry.
+- Facebook Profile and Facebook Page separate account slots, with up to ten slots per platform.
+- Content drafts, SEO/keyword checks, campaign planning and manual CTR/CPM/RPM analytics.
+- Official Blogger API publishing adapter using private environment credentials or encrypted vault entries. Google OAuth consent and refresh-token lifecycle are not yet included.
+- Optional local AI generation through Ollama. No paid AI API is called.
+- Encrypted SQLite backup and integrity-checked restore scripts.
+- PWA shell, Windows launcher, Dockerfile and Docker Compose persistent volume.
+- Optional Docker Compose Ollama profile for self-hosted local AI.
+- GitHub Actions compilation and automated tests.
+
+## Windows local setup
 
 1. Install Python 3.11+ from https://www.python.org/downloads/ and enable **Add Python to PATH**.
-2. Download this repository with GitHub **Code → Download ZIP**, then extract it.
-3. Double-click `run_windows.bat`. It creates a virtual environment, installs dependencies, creates a local `.env` and starts the server.
-4. Copy the one-time setup key printed in the terminal. Keep it private.
-5. Open http://127.0.0.1:8000/app/ in your browser.
-6. Create the owner account using the setup key, a username and a password of at least 12 characters.
-7. After successful setup, stop the server with Ctrl+C. Open `.env`, remove the `ADMIN_SETUP_KEY=...` line, save, then run `run_windows.bat` again.
-8. Sign in with your owner username and password.
+2. Download this branch with GitHub **Code → Download ZIP**, then extract it.
+3. Run `run_windows.bat`. It installs dependencies and creates a private local `.env`.
+4. Keep the one-time setup key and encryption key printed by setup_local.py private. Store a separate backup of the encryption key; without it, saved vault/MFA secrets cannot be decrypted.
+5. Open http://127.0.0.1:8000/app/ and create the owner account using the one-time setup key, a unique username and a strong password of at least 12 characters.
+6. Stop the app, remove `ADMIN_SETUP_KEY` from `.env`, save, then restart. Keep `APP_ENCRYPTION_KEY`.
+7. In the Security tab, enroll your authenticator app and confirm with its current six-digit code.
 
-Keep the terminal open while using the dashboard. The local server is only accessible from your computer.
+The Windows launcher binds to localhost for local testing only. It is not a public internet server.
 
-## Dashboard modules
+## Install on Android
 
-- Private owner login, logout and password change.
-- Separate Facebook Profile and Facebook Page registries.
-- Ten independent account slots per supported platform: Facebook Profile, Facebook Page, Instagram, X, YouTube, LinkedIn, TikTok and Pinterest.
-- Per-account niche, content formats and approval preferences.
-- Global publishing safety switch (OFF by default).
-- Save and review content drafts.
-- Basic SEO and keyword analysis.
-- Traffic campaign planning.
-- Manual analytics record entry and summary.
+For a hosted install, use an HTTPS domain. Open `/app/` in Chrome on Android and choose **Install app** or **Add to Home screen**. The service worker caches only static shell assets, not private API data. Offline mode does not provide live app functionality. This is a PWA, not an APK or Play Store release.
 
-## Important limitations
+## Optional local AI (free/open source)
 
-This is a local MVP and test dashboard, not a complete automation service. Registering an account slot does **not** connect or authenticate a social account. Official OAuth, encrypted token storage, provider permissions and platform-specific publishing adapters are not implemented. The dashboard does not yet generate AI content, publish to Blogger/social platforms, schedule posts, or fetch live Adsterra/Monetag earnings. SEO/keyword and analytics functions are starter utilities/manual records, not live third-party data.
+Install Ollama and pull a model, for example `ollama pull llama3.2:3b`. Keep Ollama running and set `OLLAMA_BASE_URL` and `OLLAMA_MODEL` in the private environment. With Docker Compose, start the optional AI profile using `docker compose --profile ai up --build -d`, then run `docker compose exec ollama ollama pull llama3.2:3b`. CPU inference can be slow and needs RAM/disk. If Ollama is unavailable, the app reports that no local model is available; it never falls back to a paid provider.
 
-Do not enter social passwords or API tokens into this app. Do not use it for public production hosting. Real publishing requires official API access and platform policy compliance. Never buy traffic, generate fake engagement, or spam. No paid service should be enabled without the owner's explicit permission.
+## Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md). Public deployment requires HTTPS, private environment variables and a persistent disk/volume. Do not use an ephemeral free host for SQLite data unless its persistence guarantees are confirmed.
+
+Before public launch:
+- Generate and securely back up `APP_ENCRYPTION_KEY`.
+- Set a long random `ADMIN_SETUP_KEY`; remove it after first owner setup.
+- Use a unique strong owner password and enable TOTP MFA.
+- Configure persistent storage for `APP_DB_PATH`, `AUTH_DB_PATH` and `SOCIAL_DB_PATH`.
+- Test `/health`, `/ready`, backup and restore.
+- Keep publishing OFF until provider integrations and permissions are validated.
+
+## Encrypted backup and restore
+
+Create a backup with `python scripts/backup_database.py /secure-location/asfandyar.backup.enc`. Restore with the app stopped using `python scripts/restore_database.py /secure-location/asfandyar.backup.enc`. See [BACKUP.md](BACKUP.md). Store backup files separately from the encryption key.
 
 ## Tests
 
-```bat
-.venv\Scripts\python.exe -m unittest discover -v
+```bash
+python -m compileall -q .
+python -m unittest discover -v
 ```
 
-GitHub Actions runs dependency installation, compilation, unit tests and API smoke tests on pushes.
+GitHub Actions runs the same compilation and automated test suite.
 
-## Security
+## Not yet implemented / external dependencies
 
-- One owner account; no public registration.
-- Passwords are salted and hashed with PBKDF2-HMAC-SHA256.
-- Session tokens are random; only SHA-256 digests are stored.
-- Login attempts are rate-limited; state-changing API calls require CSRF protection.
-- Keep `.env`, passwords, setup keys and OAuth secrets out of GitHub.
-- The Windows quick-start binds to `127.0.0.1` over HTTP. It is for local testing only, not public deployment.
+- Social account records are not authenticated platform connections. Facebook, Instagram, X, YouTube, LinkedIn, TikTok and Pinterest require their official OAuth apps, permissions, review/approval and platform-specific publishing adapters.
+- Blogger uses the official API, but Google OAuth authorization-code consent and automatic refresh-token lifecycle still need completion. A valid private access token and blog ID are required.
+- Adsterra and Monetag live earnings APIs are not connected; earnings are manual analytics entries.
+- Background scheduler/queue and unattended campaign automation are not implemented.
+- Built-in MFA recovery codes are not included. Keep your authenticator device and encryption-key backup safe.
+- Independent security audit, penetration test and external monitoring are not included.
+
+No fake engagement, bought traffic, spam or policy-violating automation is included. Never commit `.env`, database files, backups, setup keys, encryption keys or provider credentials. This is a deployment candidate, not an independently audited production service.
+
+See [SECURITY.md](SECURITY.md), [FINAL_DEPLOYMENT_CHECKLIST.md](FINAL_DEPLOYMENT_CHECKLIST.md), [DEPLOYMENT.md](DEPLOYMENT.md) and [BACKUP.md](BACKUP.md).

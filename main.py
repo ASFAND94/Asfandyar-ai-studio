@@ -11,12 +11,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from ai_engine import AIEngine
 from analytics_manager import AnalyticsManager
 from auth_manager import AuthManager, SESSION_COOKIE
 from content_manager import ContentManager
 from keyword_manager import KeywordManager
 from seo_manager import SEOManager
 from traffic_manager import TrafficManager
+from blogger_manager import BloggerManager
+from database import get_connection as get_app_db_connection
+import security_manager
 from social_account_manager import (
     SocialAccountManager,
     SUPPORTED_PLATFORMS,
@@ -39,6 +43,8 @@ keyword_manager = KeywordManager()
 seo_manager = SEOManager()
 traffic_manager = TrafficManager()
 social_accounts = SocialAccountManager()
+blogger_manager = BloggerManager()
+ai_engine = AIEngine()
 
 app.mount("/app", StaticFiles(directory=str(Path(__file__).resolve().parent / "static"), html=True), name="dashboard")
 
@@ -52,6 +58,21 @@ class SetupRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str = Field(min_length=3, max_length=80)
     password: str = Field(min_length=1, max_length=256)
+    totp_code: Optional[str] = Field(default=None, min_length=6, max_length=6)
+
+
+class MFAConfirmRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=6)
+
+
+class MFADisableRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+    code: str = Field(min_length=6, max_length=6)
+
+
+class VaultSecretRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    value: str = Field(min_length=1, max_length=10000)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -63,17 +84,22 @@ class AccountPreferencesRequest(BaseModel):
     niche: Optional[str] = Field(default=None, max_length=160)
     content_formats: Optional[list[Literal["post", "video", "reel", "story", "short", "article"]]] = None
     publishing_enabled: Optional[bool] = None
-    require_approval: Optional[bool] = None
+    require_approval: Literal[True] = True
 
 
 class OwnerControlsRequest(BaseModel):
     global_publishing_enabled: Optional[bool] = None
-    require_approval: Optional[bool] = None
+    require_approval: Literal[True] = True
 
 
 class ContentDraftRequest(BaseModel):
     title: str = Field(min_length=3, max_length=180)
     body: str = Field(min_length=10, max_length=50000)
+    platform: Literal["blogger", "facebook", "x", "pinterest"] = "blogger"
+
+
+class AIRequest(BaseModel):
+    topic: str = Field(min_length=3, max_length=2000)
     platform: Literal["blogger", "facebook", "x", "pinterest"] = "blogger"
 
 
@@ -112,7 +138,7 @@ class SocialAccountRequest(BaseModel):
 @app.middleware("http")
 async def security_and_auth_middleware(request: Request, call_next):
     path = request.url.path
-    public_paths = {"/health", "/auth/status", "/auth/setup", "/auth/login"}
+    public_paths = {"/health", "/ready", "/auth/status", "/auth/setup", "/auth/login"}
     is_public_asset = path == "/app" or path.startswith("/app/")
     if path not in public_paths and not is_public_asset:
         raw_session = request.cookies.get(SESSION_COOKIE)
@@ -123,6 +149,10 @@ async def security_and_auth_middleware(request: Request, call_next):
             response.headers["X-Frame-Options"] = "DENY"
             response.headers["Referrer-Policy"] = "no-referrer"
             response.headers["Cache-Control"] = "no-store"
+            response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'"
+            response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+            if request.url.scheme == "https":
+                response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
             return response
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             csrf = request.headers.get("X-CSRF-Token", "")
@@ -133,9 +163,18 @@ async def security_and_auth_middleware(request: Request, call_next):
                 response.headers["Referrer-Policy"] = "no-referrer"
                 response.headers["Cache-Control"] = "no-store"
                 response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'"
+                response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+                if request.url.scheme == "https":
+                    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+                auth.record_security_event("csrf_validation_failed", request.client.host if request.client else "unknown")
                 return response
 
     response = await call_next(request)
+    if request.method not in {"GET", "HEAD", "OPTIONS"} and path not in {"/auth/login", "/auth/setup"}:
+        auth.record_security_event(
+            f"{request.method} {path} -> {response.status_code}",
+            request.client.host if request.client else "unknown"
+        )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -168,6 +207,8 @@ def setup_admin(request: SetupRequest):
 @app.post("/auth/login")
 def login(request: LoginRequest, http_request: Request, response: Response):
     client_key = http_request.client.host if http_request.client else "unknown"
+    if security_manager.mfa_enabled() and not security_manager.verify_owner_totp(request.totp_code or "", client_key):
+        raise HTTPException(status_code=401, detail="Invalid username, password, or authenticator code.")
     try:
         result = auth.login(request.username, request.password, client_key)
     except TimeoutError as error:
@@ -184,6 +225,85 @@ def login(request: LoginRequest, http_request: Request, response: Response):
         path="/",
     )
     return {"success": True, "username": result["username"], "csrf_token": result["csrf"], "expires_in_seconds": 28800}
+
+
+@app.get("/security/mfa/status")
+def mfa_status():
+    return {"enabled": security_manager.mfa_enabled()}
+
+
+@app.post("/security/mfa/enroll")
+def mfa_enroll():
+    try:
+        secret = security_manager.new_totp_enrollment()
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error))
+    issuer = "Asfandyar%20AI%20Studio"
+    account = "owner"
+    uri = f"otpauth://totp/{issuer}:{account}?secret={secret}&issuer={issuer}&algorithm=SHA1&digits=6&period=30"
+    return {"secret": secret, "otpauth_uri": uri, "message": "Add this secret to an authenticator app, then confirm with its current six-digit code. The secret is shown only during enrollment."}
+
+
+@app.post("/security/mfa/confirm")
+def mfa_confirm(request: MFAConfirmRequest):
+    try:
+        valid = security_manager.confirm_totp_enrollment(request.code)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error))
+    if not valid:
+        raise HTTPException(status_code=400, detail="Authenticator code is invalid. Try the current six-digit code.")
+    auth.record_security_event("totp_mfa_enabled", "owner")
+    return {"enabled": True, "message": "Authenticator MFA enabled. Future logins require password and authenticator code."}
+
+
+@app.post("/security/mfa/disable")
+def mfa_disable(request: MFADisableRequest, http_request: Request, response: Response):
+    session = auth.validate_session(http_request.cookies.get(SESSION_COOKIE))
+    if not session:
+        raise HTTPException(status_code=401, detail="Login required.")
+    try:
+        if not auth.verify_owner_password(request.password):
+            raise HTTPException(status_code=403, detail="Password or authenticator code is incorrect.")
+        if not security_manager.verify_owner_totp(request.code, http_request.client.host if http_request.client else "unknown"):
+            raise HTTPException(status_code=403, detail="Password or authenticator code is incorrect.")
+        security_manager.disable_totp()
+        auth.revoke_all_sessions()
+        auth.record_security_event("totp_mfa_disabled_all_sessions_revoked", "owner")
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error))
+    response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, samesite="strict")
+    return {"enabled": False, "message": "MFA disabled and all sessions revoked. Sign in again."}
+
+
+@app.get("/security/vault")
+def vault_list():
+    try:
+        return {"secrets": security_manager.list_secret_metadata()}
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error))
+
+
+@app.post("/security/vault", status_code=201)
+def vault_store(request: VaultSecretRequest):
+    try:
+        item = security_manager.put_secret(request.name, request.value)
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=503 if isinstance(error, RuntimeError) else 400, detail=str(error))
+    auth.record_security_event("encrypted_vault_secret_saved", "owner")
+    return {"secret": item, "message": "Encrypted secret saved. Its value is never returned by the API."}
+
+
+@app.delete("/security/vault/{name}")
+def vault_delete(name: str):
+    if not security_manager.delete_secret(name):
+        raise HTTPException(status_code=404, detail="Vault entry not found.")
+    auth.record_security_event("encrypted_vault_secret_deleted", "owner")
+    return {"success": True}
+
+
+@app.get("/security/events")
+def security_events():
+    return {"events": auth.list_security_events(100), "retention_limit": 1000}
 
 
 @app.get("/auth/me")
@@ -229,6 +349,21 @@ def health():
     return {"status": "healthy", "time": datetime.now().astimezone().isoformat()}
 
 
+@app.get("/ready")
+def readiness():
+    """Check that all configured SQLite stores can accept queries."""
+    try:
+        with get_app_db_connection() as connection:
+            connection.execute("SELECT 1").fetchone()
+        with auth.connect() as connection:
+            connection.execute("SELECT 1").fetchone()
+        with social_accounts.connect() as connection:
+            connection.execute("SELECT 1").fetchone()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Application storage is not ready.")
+    return {"status": "ready"}
+
+
 @app.get("/features")
 def features():
     return {
@@ -245,6 +380,40 @@ def features():
             "Adsterra and Monetag reporting (official integration required)",
         ]
     }
+
+
+@app.get("/blogger/status")
+def blogger_status():
+    configured = blogger_manager.refresh_credentials()
+    return {
+        "configured": configured,
+        "blog_id_configured": bool(blogger_manager.blog_id),
+        "access_token_configured": bool(blogger_manager.access_token),
+        "publish_ready": configured,
+        "note": "Uses the official Blogger API. Keep the access token on the private server; never put it in the browser or GitHub."
+    }
+
+
+@app.post("/content/{content_id}/publish-blogger")
+def publish_blogger_draft(content_id: int):
+    blogger_manager.refresh_credentials()
+    controls = social_accounts.get_owner_controls()
+    if not controls["global_publishing_enabled"]:
+        raise HTTPException(status_code=403, detail="Publishing is OFF. Enable the global publishing switch first.")
+    draft = next((item for item in content_manager.get_all_content() if item["id"] == content_id), None)
+    if draft is None:
+        raise HTTPException(status_code=404, detail="Content draft not found.")
+    if draft["platform"] != "blogger":
+        raise HTTPException(status_code=400, detail="This draft is not assigned to Blogger.")
+    if controls["require_approval"] and draft["status"] != "ready_to_publish":
+        raise HTTPException(status_code=403, detail="Owner approval required. Approve this draft before publishing.")
+    if not blogger_manager.access_token or not blogger_manager.blog_id:
+        raise HTTPException(status_code=503, detail="Blogger is not configured. Add BLOGGER_ACCESS_TOKEN and BLOGGER_BLOG_ID to the private server environment.")
+    result = blogger_manager.create_post(draft["title"], draft["body"])
+    if not result.get("success"):
+        raise HTTPException(status_code=502, detail=result.get("message", "Blogger API request failed."))
+    content_manager.mark_published(content_id, result.get("post", {}))
+    return {"success": True, "message": "Published to Blogger.", "post": result.get("post", {})}
 
 
 @app.get("/social/platforms")
@@ -308,10 +477,13 @@ def get_owner_control_settings():
 
 @app.put("/control/settings")
 def update_owner_control_settings(request: OwnerControlsRequest):
-    settings = social_accounts.update_owner_controls(
-        global_publishing_enabled=request.global_publishing_enabled,
-        require_approval=request.require_approval,
-    )
+    try:
+        settings = social_accounts.update_owner_controls(
+            global_publishing_enabled=request.global_publishing_enabled,
+            require_approval=request.require_approval,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
     return {"settings": settings, "message": "Owner controls updated."}
 
 
@@ -341,6 +513,14 @@ def mark_content_ready(content_id: int):
     if content is None:
         raise HTTPException(status_code=404, detail="Content draft not found.")
     return {**content, "message": "Marked ready. This endpoint does not publish externally."}
+
+
+@app.post("/ai/generate")
+def generate_ai_draft(request: AIRequest):
+    result = ai_engine.generate_content(request.topic, request.platform)
+    if not result.get("success"):
+        return result
+    return {**result, "message": "Generated locally. Review and save as a draft; nothing is published automatically."}
 
 
 @app.post("/seo/analyze")

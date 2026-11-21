@@ -34,6 +34,8 @@ class SocialAccountManagerTests(unittest.TestCase):
         self.assertEqual(prefs["niche"], "")
         self.assertFalse(prefs["publishing_enabled"])
         self.assertTrue(prefs["require_approval"])
+        with self.assertRaises(ValueError):
+            self.manager.update_preferences(account["id"], {"require_approval": False})
         updated = self.manager.update_preferences(account["id"], {
             "niche": "AI education", "content_formats": ["reel", "post"],
             "publishing_enabled": True,
@@ -47,6 +49,8 @@ class SocialAccountManagerTests(unittest.TestCase):
         controls = self.manager.get_owner_controls()
         self.assertFalse(controls["global_publishing_enabled"])
         self.assertTrue(controls["require_approval"])
+        with self.assertRaises(ValueError):
+            self.manager.update_owner_controls(require_approval=False)
 
 
 class AuthManagerTests(unittest.TestCase):

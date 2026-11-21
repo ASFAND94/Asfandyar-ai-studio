@@ -1,18 +1,21 @@
-class TrafficManager:
+from database import get_connection, initialize_database
 
+
+class TrafficManager:
     def __init__(self):
-        self.campaigns = []
+        initialize_database()
 
     def create_campaign(self, name, platform, website_url):
-        campaign = {
-            "name": name,
-            "platform": platform,
-            "website": website_url,
-            "status": "draft"
-        }
-
-        self.campaigns.append(campaign)
-        return campaign
+        with get_connection() as connection:
+            cursor = connection.execute(
+                """INSERT INTO campaigns (name, platform, website, status)
+                   VALUES (?, ?, ?, 'draft')""",
+                (name, platform, website_url),
+            )
+            row = connection.execute(
+                "SELECT * FROM campaigns WHERE id = ?", (cursor.lastrowid,)
+            ).fetchone()
+            return dict(row)
 
     def seo_checklist(self):
         return [
@@ -23,7 +26,7 @@ class TrafficManager:
             "Optimize images",
             "Use internal links",
             "Improve mobile experience",
-            "Submit sitemap to Google"
+            "Submit sitemap to Google",
         ]
 
     def generate_promotion_plan(self, website_url):
@@ -35,10 +38,14 @@ class TrafficManager:
                 "Share posts on X",
                 "Create relevant social media posts",
                 "Monitor Google Analytics",
-                "Review traffic performance"
+                "Review traffic performance",
             ],
-            "status": "draft"
+            "status": "draft",
         }
 
     def get_campaigns(self):
-        return self.campaigns
+        with get_connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM campaigns ORDER BY id DESC"
+            ).fetchall()
+            return [dict(row) for row in rows]
