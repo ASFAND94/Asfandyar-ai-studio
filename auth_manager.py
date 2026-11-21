@@ -98,6 +98,38 @@ class AuthManager:
                     locked_until TEXT
                 )
             """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS security_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event TEXT NOT NULL,
+                    client_fingerprint TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+            """)
+
+    def record_security_event(self, event, client_key="unknown"):
+        # Store a one-way client fingerprint rather than a raw IP address.
+        fingerprint = token_digest(str(client_key or "unknown"))
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO security_events (event, client_fingerprint, created_at) VALUES (?, ?, ?)",
+                (str(event)[:80], fingerprint, utc_text(utc_now()))
+            )
+            db.execute("""
+                DELETE FROM security_events
+                WHERE id NOT IN (
+                    SELECT id FROM security_events ORDER BY id DESC LIMIT 1000
+                )
+            """)
+
+    def list_security_events(self, limit=100):
+        limit = max(1, min(int(limit), 200))
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT id, event, client_fingerprint, created_at "
+                "FROM security_events ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+            return [dict(row) for row in rows]
 
     def is_configured(self):
         with self.connect() as db:
@@ -119,6 +151,10 @@ class AuthManager:
                 "INSERT INTO admin_user (id, username, password_hash, created_at, updated_at) VALUES (1, ?, ?, ?, ?)",
                 (username.strip(), password_hash(password), now, now)
             )
+            db.execute(
+                "INSERT INTO security_events (event, client_fingerprint, created_at) VALUES (?, ?, ?)",
+                ("owner_account_created", token_digest("setup"), now)
+            )
 
     def login(self, username, password, client_key):
         now = utc_now()
@@ -129,6 +165,10 @@ class AuthManager:
             ).fetchone()
             if attempt and attempt["locked_until"]:
                 if datetime.fromisoformat(attempt["locked_until"]) > now:
+                    db.execute(
+                        "INSERT INTO security_events (event, client_fingerprint, created_at) VALUES (?, ?, ?)",
+                        ("login_blocked_rate_limit", token_digest(str(client_key)), utc_text(now))
+                    )
                     raise TimeoutError("Too many failed attempts. Try again later.")
 
             user = db.execute(
@@ -149,9 +189,17 @@ class AuthManager:
                     ON CONFLICT(client_key) DO UPDATE SET
                         failures=excluded.failures, locked_until=excluded.locked_until
                 """, (client_key, failures, locked_until))
+                db.execute(
+                    "INSERT INTO security_events (event, client_fingerprint, created_at) VALUES (?, ?, ?)",
+                    ("login_failed", token_digest(str(client_key)), utc_text(now))
+                )
                 return None
 
             db.execute("DELETE FROM login_attempts WHERE client_key = ?", (client_key,))
+            db.execute(
+                "INSERT INTO security_events (event, client_fingerprint, created_at) VALUES (?, ?, ?)",
+                ("login_succeeded", token_digest(str(client_key)), utc_text(now))
+            )
             raw_session = secrets.token_urlsafe(48)
             raw_csrf = secrets.token_urlsafe(32)
             db.execute("""
@@ -188,8 +236,13 @@ class AuthManager:
     def logout(self, raw_session):
         if raw_session:
             with self.connect() as db:
-                db.execute("DELETE FROM admin_sessions WHERE token_hash = ?",
-                           (token_digest(raw_session),))
+                cursor = db.execute("DELETE FROM admin_sessions WHERE token_hash = ?",
+                                    (token_digest(raw_session),))
+                if cursor.rowcount:
+                    db.execute(
+                        "INSERT INTO security_events (event, client_fingerprint, created_at) VALUES (?, ?, ?)",
+                        ("logout", token_digest("session"), utc_text(utc_now()))
+                    )
 
     def change_password(self, raw_session, current_password, new_password):
         if len(new_password) < 12 or len(new_password) > 256:
@@ -209,4 +262,8 @@ class AuthManager:
                 (password_hash(new_password), now)
             )
             db.execute("DELETE FROM admin_sessions")
+            db.execute(
+                "INSERT INTO security_events (event, client_fingerprint, created_at) VALUES (?, ?, ?)",
+                ("password_changed_all_sessions_revoked", token_digest("owner"), now)
+            )
         return True
