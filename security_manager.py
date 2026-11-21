@@ -47,6 +47,11 @@ def initialize():
             enabled INTEGER NOT NULL DEFAULT 0,
             updated_at TEXT NOT NULL
         )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS mfa_login_attempts (
+            client_key TEXT PRIMARY KEY,
+            failures INTEGER NOT NULL DEFAULT 0,
+            locked_until REAL
+        )""")
         db.execute("""CREATE TABLE IF NOT EXISTS secret_vault (
             name TEXT PRIMARY KEY,
             ciphertext TEXT NOT NULL,
@@ -121,8 +126,28 @@ def mfa_enabled():
     return bool(row and row["enabled"])
 
 
-def verify_owner_totp(code):
-    return mfa_enabled() and verify_totp(code)
+def verify_owner_totp(code, client_key="owner-action"):
+    if not mfa_enabled():
+        return False
+    now = time.time()
+    with _connect() as db:
+        row = db.execute(
+            "SELECT failures, locked_until FROM mfa_login_attempts WHERE client_key=?",
+            (str(client_key),),
+        ).fetchone()
+        if row and row["locked_until"] and row["locked_until"] > now:
+            return False
+        if verify_totp(code):
+            db.execute("DELETE FROM mfa_login_attempts WHERE client_key=?", (str(client_key),))
+            return True
+        failures = (row["failures"] if row else 0) + 1
+        locked_until = now + 900 if failures >= 5 else None
+        db.execute(
+            "INSERT INTO mfa_login_attempts(client_key,failures,locked_until) VALUES(?,?,?) "
+            "ON CONFLICT(client_key) DO UPDATE SET failures=excluded.failures,locked_until=excluded.locked_until",
+            (str(client_key), failures, locked_until),
+        )
+        return False
 
 
 def disable_totp():
