@@ -20,6 +20,9 @@ This repository contains a FastAPI application, responsive installable PWA, SQLi
 ## Local Windows use
 Install Python 3.11+, download the GitHub ZIP, extract it and run `run_windows.bat`. Keep the terminal open. The app binds to localhost and is intended for local testing. Do not expose this HTTP development server to the internet.
 
+## Optional local AI with Ollama
+The Compose file includes an optional Ollama service profile. Start it with `docker compose --profile ai up --build -d`, then download the default model once using `docker compose exec ollama ollama pull llama3.2:3b`. Model downloads use disk space and CPU/RAM; GPU acceleration requires host-specific configuration. Without the profile/model, the AI draft button reports that the local model is unavailable; it never silently switches to a paid API.
+
 ## Docker Compose
 - Create a private `.env` beside `docker-compose.yml`.
 - Set `ADMIN_SETUP_KEY` to a random one-time value and `COOKIE_SECURE=true`.
