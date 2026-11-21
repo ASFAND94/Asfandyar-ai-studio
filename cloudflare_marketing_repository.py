@@ -9,16 +9,15 @@ class D1ContentRepository:
     async def create_content(self, title, body, platform="blogger"):
         if not title or not body:
             return None
-        await self.store.execute(
+        result = await self.store.execute(
             """INSERT INTO content_drafts (title, body, platform, status)
                VALUES (?, ?, ?, 'draft')""",
             title, body, platform,
         )
         return await self.store.one(
             """SELECT id, title, body, platform, status, created_at, updated_at
-               FROM content_drafts WHERE title = ? AND platform = ?
-               ORDER BY id DESC LIMIT 1""",
-            title, platform,
+               FROM content_drafts WHERE id = ?""",
+            result["last_row_id"],
         )
 
     async def get_all_content(self):
@@ -53,16 +52,15 @@ class D1CampaignRepository:
         self.store = store
 
     async def create_campaign(self, name, platform, website_url):
-        await self.store.execute(
+        result = await self.store.execute(
             """INSERT INTO campaigns (name, platform, website_url)
                VALUES (?, ?, ?)""",
             name, platform, website_url,
         )
         return await self.store.one(
             """SELECT id, name, platform, website_url AS website, created_at
-               FROM campaigns WHERE name = ? AND platform = ?
-               ORDER BY id DESC LIMIT 1""",
-            name, platform,
+               FROM campaigns WHERE id = ?""",
+            result["last_row_id"],
         )
 
     async def get_campaigns(self):
@@ -99,7 +97,7 @@ class D1AnalyticsRepository:
             max(0, int(pageviews)), max(0, int(impressions)),
             max(0, int(clicks)), max(0.0, float(earnings)),
         )
-        await self.store.execute(
+        result = await self.store.execute(
             """INSERT INTO analytics_records
                (record_date, platform, visitors, pageviews, impressions, clicks, earnings)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
@@ -108,10 +106,8 @@ class D1AnalyticsRepository:
         row = await self.store.one(
             """SELECT record_date AS date, platform, visitors, pageviews,
                       impressions, clicks, earnings
-               FROM analytics_records
-               WHERE record_date = ? AND platform = ?
-               ORDER BY id DESC LIMIT 1""",
-            record_date, platform,
+               FROM analytics_records WHERE id = ?""",
+            result["last_row_id"],
         )
         return self.calculate_metrics(row)
 
