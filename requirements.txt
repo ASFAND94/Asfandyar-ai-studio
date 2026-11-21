@@ -1,8 +1,8 @@
-fastapi
+fastapi>=0.110
 uvicorn
 python-dotenv
 requests
-pydantic
+pydantic>=2.0
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
