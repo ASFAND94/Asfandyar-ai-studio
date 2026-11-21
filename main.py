@@ -115,7 +115,7 @@ class SocialAccountRequest(BaseModel):
 @app.middleware("http")
 async def security_and_auth_middleware(request: Request, call_next):
     path = request.url.path
-    public_paths = {"/health", "/auth/status", "/auth/setup", "/auth/login"}
+    public_paths = {"/health", "/ready", "/auth/status", "/auth/setup", "/auth/login"}
     is_public_asset = path == "/app" or path.startswith("/app/")
     if path not in public_paths and not is_public_asset:
         raw_session = request.cookies.get(SESSION_COOKIE)
