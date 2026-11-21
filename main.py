@@ -18,6 +18,7 @@ from keyword_manager import KeywordManager
 from seo_manager import SEOManager
 from traffic_manager import TrafficManager
 from blogger_manager import BloggerManager
+from database import get_connection as get_app_db_connection
 from social_account_manager import (
     SocialAccountManager,
     SUPPORTED_PLATFORMS,
@@ -247,6 +248,21 @@ def home():
 @app.get("/health")
 def health():
     return {"status": "healthy", "time": datetime.now().astimezone().isoformat()}
+
+
+@app.get("/ready")
+def readiness():
+    """Check that all configured SQLite stores can accept queries."""
+    try:
+        with get_app_db_connection() as connection:
+            connection.execute("SELECT 1").fetchone()
+        with auth.connect() as connection:
+            connection.execute("SELECT 1").fetchone()
+        with social_accounts.connect() as connection:
+            connection.execute("SELECT 1").fetchone()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Application storage is not ready.")
+    return {"status": "ready"}
 
 
 @app.get("/features")
