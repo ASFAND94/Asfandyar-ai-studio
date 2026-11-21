@@ -15,13 +15,17 @@ class SocialAccountManagerTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def test_each_platform_has_independent_five_account_limit(self):
-        for index in range(5):
-            self.manager.add_account("facebook", f"FB {index}", f"fb_{index}")
+    def test_each_platform_has_independent_ten_account_limit(self):
+        for index in range(10):
+            self.manager.add_account("facebook_profile", f"FB Profile {index}", f"profile_{index}")
+            self.manager.add_account("facebook_page", f"FB Page {index}", f"page_{index}")
         self.manager.add_account("instagram", "IG 1", "ig_1")
         with self.assertRaises(OverflowError):
-            self.manager.add_account("facebook", "FB 6", "fb_6")
-        self.assertEqual(self.manager.account_limits()["facebook"]["used"], 5)
+            self.manager.add_account("facebook_profile", "FB Profile 11", "profile_11")
+        with self.assertRaises(OverflowError):
+            self.manager.add_account("facebook_page", "FB Page 11", "page_11")
+        self.assertEqual(self.manager.account_limits()["facebook_profile"]["used"], 10)
+        self.assertEqual(self.manager.account_limits()["facebook_page"]["used"], 10)
         self.assertEqual(self.manager.account_limits()["instagram"]["used"], 1)
 
     def test_owner_controls_niche_and_default_approval(self):
@@ -30,10 +34,8 @@ class SocialAccountManagerTests(unittest.TestCase):
         self.assertEqual(prefs["niche"], "")
         self.assertFalse(prefs["publishing_enabled"])
         self.assertTrue(prefs["require_approval"])
-
         updated = self.manager.update_preferences(account["id"], {
-            "niche": "AI education",
-            "content_formats": ["reel", "post"],
+            "niche": "AI education", "content_formats": ["reel", "post"],
             "publishing_enabled": True,
         })
         self.assertEqual(updated["niche"], "AI education")
@@ -64,15 +66,9 @@ class AuthManagerTests(unittest.TestCase):
         session = self.manager.validate_session(result["session"])
         self.assertIsNotNone(session)
         self.assertTrue(self.manager.validate_csrf(session, result["csrf"]))
-        self.manager.change_password(
-            result["session"],
-            "A-very-strong-test-password",
-            "Another-strong-test-password"
-        )
+        self.manager.change_password(result["session"], "A-very-strong-test-password", "Another-strong-test-password")
         self.assertIsNone(self.manager.validate_session(result["session"]))
-        self.assertIsNotNone(
-            self.manager.login("owner", "Another-strong-test-password", "127.0.0.1")
-        )
+        self.assertIsNotNone(self.manager.login("owner", "Another-strong-test-password", "127.0.0.1"))
 
 
 if __name__ == "__main__":
