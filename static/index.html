@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Asfandyar AI Studio — Owner Login</title>
+  <link rel="stylesheet" href="/app/style.css">
+  <script src="/app/app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <div>
+        <p class="eyebrow">PRIVATE OWNER WORKSPACE</p>
+        <h1>Asfandyar AI Studio</h1>
+        <p class="muted">Your accounts. Your niches. Your decisions.</p>
+      </div>
+      <span class="lock">OWNER CONTROL</span>
+    </header>
+
+    <section id="auth-panel" class="panel">
+      <h2 id="auth-title">Secure sign in</h2>
+      <p id="auth-note" class="muted">This workspace is private. Only the owner can sign in.</p>
+      <form id="setup-form" class="stack hidden">
+        <label>One-time setup key<input name="setup_key" type="password" minlength="20" required autocomplete="off"></label>
+        <label>Owner username<input name="username" minlength="3" maxlength="80" required autocomplete="username"></label>
+        <label>Create password (at least 12 characters)<input name="password" type="password" minlength="12" maxlength="256" required autocomplete="new-password"></label>
+        <button type="submit">Create owner account</button>
+      </form>
+      <form id="login-form" class="stack hidden">
+        <label>Username<input name="username" required autocomplete="username"></label>
+        <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
+        <button type="submit">Sign in securely</button>
+      </form>
+      <p id="auth-message" class="message" role="status"></p>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <div class="welcome panel">
+        <div><p class="eyebrow">CONTROL CENTER</p><h2>Owner dashboard</h2><p class="muted">Publishing starts OFF. Your approval is required by default.</p></div>
+        <button id="logout" class="secondary">Log out</button>
+      </div>
+
+      <section class="panel">
+        <h2>Global safety controls</h2>
+        <label class="check"><input id="global-publish" type="checkbox"> Allow publishing globally</label>
+        <label class="check"><input id="global-approval" type="checkbox" checked> Require my approval before publishing</label>
+        <button id="save-global">Save control settings</button>
+        <p class="muted small">The global switch is OFF by default. Real publishing also requires official platform authorization.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Register a social account</h2>
+        <form id="account-form" class="grid-form">
+          <label>Platform<select name="platform" required>
+            <option value="facebook">Facebook</option><option value="instagram">Instagram</option>
+            <option value="tiktok">TikTok</option><option value="youtube">YouTube</option>
+            <option value="x">X</option><option value="linkedin">LinkedIn</option><option value="pinterest">Pinterest</option>
+          </select></label>
+          <label>Account display name<input name="account_name" required maxlength="120"></label>
+          <label>Username / handle<input name="account_handle" required maxlength="160"></label>
+          <button type="submit">Add account slot</button>
+        </form>
+        <p class="muted small">Maximum five separate account slots per platform. This does not log in to the social platform; official OAuth will be added separately.</p>
+        <p id="account-message" class="message" role="status"></p>
+      </section>
+
+      <section class="panel">
+        <div class="section-head"><h2>Your accounts and niches</h2><button id="refresh" class="secondary">Refresh</button></div>
+        <div id="limits" class="limits"></div>
+        <div id="accounts" class="accounts"><p class="muted">No accounts registered yet.</p></div>
+      </section>
+
+      <section class="panel">
+        <h2>Change owner password</h2>
+        <form id="password-form" class="stack">
+          <label>Current password<input name="current_password" type="password" required autocomplete="current-password"></label>
+          <label>New password (at least 12 characters)<input name="new_password" type="password" minlength="12" required autocomplete="new-password"></label>
+          <button type="submit">Change password and revoke sessions</button>
+        </form>
+        <p id="password-message" class="message" role="status"></p>
+      </section>
+    </section>
+    <footer>Private workspace · Never share your password, setup key, or API secrets.</footer>
+  </main>
+</body>
+</html>
