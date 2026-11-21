@@ -1,61 +1,50 @@
 # Cloudflare deployment preparation
 
-Status: **prepared, not yet deployable**.
+Status: **D1 foundation added; full Worker deployment is not yet ready.**
 
-This repository is currently a Windows/local FastAPI application. Do not deploy the existing `main.py` directly to Cloudflare Pages or Workers yet.
+The work is being developed on the `cloudflare-deployment-prep` branch. The default `main` branch has not been changed.
 
-## Verified repository facts
+## Repository findings
 
-- The app is FastAPI and mounts the dashboard from `static/`.
-- `auth_manager.py` and `social_account_manager.py` persist data using Python `sqlite3` files.
-- `content_manager.py`, `analytics_manager.py`, `keyword_manager.py`, `seo_manager.py`, and `traffic_manager.py` currently keep several records in process memory.
-- `main.py` imports `python-dotenv` and the local managers.
-- `requirements.txt` includes packages beyond the minimal Cloudflare FastAPI example.
-- The current Windows launcher starts Uvicorn on `127.0.0.1`; it is not a Cloudflare Worker entrypoint.
+- The application is a FastAPI service with a dashboard in `static/`.
+- `auth_manager.py` and `social_account_manager.py` currently use local Python `sqlite3` files.
+- Content drafts, campaigns, and analytics are currently held in process memory.
+- The current `main.py` constructs those managers at import time. It must not be imported in a Worker until those constructors use a supported durable storage implementation.
+- The local Windows/Uvicorn workflow should remain supported.
 
-## Why a Wrangler config is intentionally not added yet
+## Added in this branch
 
-Cloudflare supports FastAPI on Python Workers through its ASGI adapter. However, adding a `wrangler.jsonc` file alone would not make this app production-ready:
+- `migrations/0001_initial.sql`: initial D1 tables for owner authentication, sessions, login attempts, social account slots/preferences, owner controls, content drafts, campaigns, and analytics.
+- `cloudflare_d1.py`: a small asynchronous D1 binding adapter using prepared statements and bound parameters.
+- `tests/test_cloudflare_d1_helpers.py`: isolated unit tests using a fake D1 binding.
 
-1. The existing SQLite file-based persistence is not a suitable durable database design for Workers.
-2. In-memory content and analytics records would be lost when an isolate is recycled or traffic moves between isolates.
-3. The current authentication and social-account storage must be moved to a supported persistent service, with correct transaction and concurrency behavior.
-4. The Worker entrypoint must adapt the FastAPI app using `workers.asgi.entrypoint(app)`.
-5. Static asset serving must be configured through Workers Static Assets and tested for the current `/app/` routes.
-6. All runtime dependencies must be checked against Python Workers compatibility.
+These files are groundwork only. The existing managers do not use this adapter yet, and existing SQLite data is not automatically migrated.
 
-Deploying before these changes could expose a broken app or cause user data loss. No secrets, API keys, OAuth credentials, or paid services should be added to Git.
+## Next implementation steps
 
-## Recommended zero-cost migration sequence
+1. Run the unit tests and validate the adapter against the actual Python Workers runtime.
+2. Define storage interfaces and implement D1-backed authentication and social-account repositories. Preserve the local SQLite implementation for Windows.
+3. Move content, campaign, and analytics records from process memory to durable repositories.
+4. Refactor application construction so importing the Worker entrypoint does not create local database files.
+5. Add a separate FastAPI Worker entrypoint using `workers.asgi.entrypoint(app)`.
+6. Configure Workers Static Assets for the existing `/app/` dashboard paths and configure the D1 binding only after the Cloudflare database is created.
+7. Add a real local Worker smoke test and CI checks before deployment.
 
-### Phase 1 — Worker-compatible application shell
+## Important runtime notes
 
-- Keep the current Windows/local launcher working.
-- Add a separate Cloudflare Worker entrypoint; do not replace the local Uvicorn entrypoint.
-- Use Cloudflare's Python Workers ASGI integration for FastAPI.
-- Serve `static/` through a Workers Static Assets binding.
-- Pin and verify compatible Python dependencies using `pyproject.toml`.
+Cloudflare's Python Workers documentation shows D1 access through the Worker environment binding, for example `self.env.DB.prepare(...)`. FastAPI applications can access the Worker environment through the ASGI request scope. The adapter follows the request-scope pattern but still requires a real-runtime smoke test before it is considered production-verified.
 
-### Phase 2 — Durable storage
+The official FastAPI guide requires a Python Workers entrypoint and a `pyproject.toml`; it also documents static assets through the `ASSETS` binding. Do not add a fake database ID or deploy configuration with placeholders.
 
-- Create a Cloudflare D1 schema for owner credentials, hashed sessions, social-account slots, preferences, content drafts, campaigns, and analytics records.
-- Replace direct SQLite file access with a storage interface and a D1 implementation.
-- Ensure session and credential handling remains secure; never store raw passwords or provider tokens.
-- Keep local SQLite support for Windows development and tests.
+## Security and product limits
 
-### Phase 3 — Validation
+- Publishing stays disabled by default; owner approval remains required.
+- Never commit `.env`, setup keys, passwords, session tokens, OAuth tokens, or provider credentials.
+- A D1 migration does not add live OAuth, social posting, Blogger publishing, AI generation, or Adsterra/Monetag earnings APIs.
+- Cloudflare hosting and D1 have free usage allowances, but limits and overages must be checked in the account before deployment. Do not enable paid billing or paid services without explicit owner approval.
 
-- Add automated tests for the D1 repository layer and Worker routes.
-- Test setup, login, logout, CSRF, account-slot limits, drafts, campaign records, and analytics.
-- Verify that publishing remains disabled by default and owner approval remains required.
-- Only then add the production `wrangler.jsonc` and deployment instructions.
-
-## Current product limitations (not solved by deployment)
-
-Cloudflare hosting does not itself add AI content generation, OAuth connections, automatic posting, Blogger publishing, or Adsterra/Monetag earnings APIs. Those require separate implementation and, where applicable, provider approval and credentials. Any paid API or service must remain disabled unless the owner explicitly approves it.
-
-## Official Cloudflare references
+## Official references
 
 - FastAPI on Python Workers: https://developers.cloudflare.com/workers/languages/python/packages/fastapi/
+- Query D1 from Python Workers: https://developers.cloudflare.com/d1/examples/query-d1-from-python-workers/
 - Python Workers: https://developers.cloudflare.com/workers/languages/python/
-- Python Workers framework support announcement: https://developers.cloudflare.com/changelog/post/2026-09-02-python-workers-web-framework-support/
