@@ -8,7 +8,7 @@ async function initialize(){try{const s=await api("/auth/status");if(s.setup_req
 $("setup-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/auth/setup",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});e.currentTarget.reset();showLogin(false);msg("auth-message","Owner created. Remove ADMIN_SETUP_KEY from .env and restart before signing in.")}catch(x){msg("auth-message",x.message,true)}});
 $("login-form").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});csrfToken=d.csrf_token;sessionStorage.setItem("asfandyar_csrf",csrfToken);e.currentTarget.reset();showDashboard()}catch(x){msg("auth-message",x.message,true)}});
 $("logout").addEventListener("click",async()=>{try{await api("/auth/logout",{method:"POST",body:"{}"})}catch(_){}csrfToken="";sessionStorage.removeItem("asfandyar_csrf");showLogin(false)});
-document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".tab-panel").forEach(x=>x.classList.toggle("hidden",x.id!=="tab-"+b.dataset.tab));if(b.dataset.tab==="content")loadDrafts();if(b.dataset.tab==="growth")loadCampaigns();if(b.dataset.tab==="analytics")loadAnalytics()}));
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".tab-panel").forEach(x=>x.classList.toggle("hidden",x.id!=="tab-"+b.dataset.tab));if(b.dataset.tab==="content")loadDrafts();if(b.dataset.tab==="growth")loadCampaigns();if(b.dataset.tab==="analytics")loadAnalytics();if(b.dataset.tab==="integrations")loadIntegrationSettings()}));
 async function loadAll(){await Promise.all([loadAccounts(),loadControls()])}
 async function loadControls(){try{const d=await api("/control/settings");$("global-publish").checked=d.global_publishing_enabled;$("global-approval").checked=d.require_approval}catch(e){msg("account-message",e.message,true)}}
 $("save-global").addEventListener("click",async()=>{try{const d=await api("/control/settings",{method:"PUT",body:JSON.stringify({global_publishing_enabled:$("global-publish").checked,require_approval:$("global-approval").checked})});msg("account-message","Settings saved. Publishing is "+(d.settings.global_publishing_enabled?"ON":"OFF")+".")}catch(e){msg("account-message",e.message,true)}});
@@ -27,4 +27,35 @@ $("analytics-form").addEventListener("submit",async e=>{e.preventDefault();const
 $("refresh-analytics").addEventListener("click",loadAnalytics);
 async function loadAnalytics(){try{const d=await api("/analytics/summary");const root=$("analytics-summary");root.replaceChildren();const p=document.createElement("p");p.className="metric";p.textContent="Total recorded earnings: "+Number(d.total_earnings||0).toFixed(2);const q=document.createElement("p");q.textContent="Records: "+d.record_count;root.append(p,q);(d.records||[]).forEach(r=>{const x=document.createElement("p");x.className="draft";x.textContent=JSON.stringify(r);root.append(x)})}catch(e){$("analytics-summary").textContent=e.message}}
 $("password-form").addEventListener("submit",async e=>{e.preventDefault();try{await api("/auth/change-password",{method:"POST",body:JSON.stringify(formData(e.currentTarget))});csrfToken="";sessionStorage.removeItem("asfandyar_csrf");e.currentTarget.reset();showLogin(false);msg("auth-message","Password changed. Sign in again.")}catch(x){msg("password-message",x.message,true)}});
-initialize();
+
+async function loadIntegrationSettings(){
+  try{
+    const [blog,ad,mon]=await Promise.all([
+      api("/integrations/blogger"),
+      api("/integrations/monetization/adsterra"),
+      api("/integrations/monetization/monetag")
+    ]);
+    $("blogger-settings-form").elements.blog_url.value=blog.blog_url||"";
+    for(const [provider,data] of [["adsterra",ad],["monetag",mon]]){
+      const form=$(provider+"-settings-form");
+      form.elements.direct_link_url.value=data.direct_link_url||"";
+      form.elements.placement.value=data.placement||"end_article";
+      form.elements.enabled.checked=!!data.enabled;
+    }
+  }catch(e){msg("blogger-message",e.message,true)}
+}
+$("blogger-settings-form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  try{await api("/integrations/blogger",{method:"PUT",body:JSON.stringify(formData(e.currentTarget))});msg("blogger-message","Blogger URL saved. Live Blogger publishing is not connected yet.");}
+  catch(x){msg("blogger-message",x.message,true)}
+});
+for(const provider of ["adsterra","monetag"]){
+  $(provider+"-settings-form").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const form=e.currentTarget;
+    const data={direct_link_url:form.elements.direct_link_url.value,placement:form.elements.placement.value,enabled:form.elements.enabled.checked};
+    try{await api("/integrations/monetization/"+provider,{method:"PUT",body:JSON.stringify(data)});msg(provider+"-message","Settings saved. Link insertion is not yet active in published Blogger posts.");}
+    catch(x){msg(provider+"-message",x.message,true)}
+  });
+}
+\ninitialize();
