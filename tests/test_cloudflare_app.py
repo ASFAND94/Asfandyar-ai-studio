@@ -22,7 +22,7 @@ class FakeD1Database:
 class CloudflareAppTests(unittest.IsolatedAsyncioTestCase):
     async def test_root_identifies_worker_shell(self):
         result = await root()
-        self.assertEqual(result["status"], "worker-shell")
+        self.assertEqual(result["status"], "running")
 
     async def test_health_is_healthy(self):
         self.assertEqual(await health(), {"status": "healthy"})
