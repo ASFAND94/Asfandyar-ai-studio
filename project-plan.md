@@ -40,3 +40,11 @@ A registered slot is not yet an authenticated connection. Actual publishing and 
 - SQLite-backed social account registry with five independent slots per supported platform.
 - Account listing, registration, removal, and limit-summary API endpoints.
 - OAuth authorization and real publishing are not implemented yet.
+
+
+## Owner security and access control
+- Single owner login; no public signup.
+- Password hashing, expiring HttpOnly session cookie, CSRF protection, login lockout, password change, and logout.
+- All application APIs require an authenticated owner session except health, first-run setup, and login.
+- Publishing and external integrations remain disabled until official OAuth credentials and explicit owner approval are configured.
+- Secrets must live in server environment variables, never in the repository.
