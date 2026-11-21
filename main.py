@@ -1,10 +1,13 @@
 from datetime import datetime
 from typing import Literal, Optional
+import os
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from analytics_manager import AnalyticsManager
+from auth_manager import AuthManager, SESSION_COOKIE
 from content_manager import ContentManager
 from keyword_manager import KeywordManager
 from seo_manager import SEOManager
@@ -17,16 +20,36 @@ from social_account_manager import (
 
 app = FastAPI(
     title="Asfandyar AI Studio",
-    description="Free AI Digital Marketing Manager",
-    version="1.2.0",
+    description="Private, single-owner AI Digital Marketing Manager",
+    version="1.3.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
+auth = AuthManager()
 content_manager = ContentManager()
 analytics_manager = AnalyticsManager()
 keyword_manager = KeywordManager()
 seo_manager = SEOManager()
 traffic_manager = TrafficManager()
 social_accounts = SocialAccountManager()
+
+
+class SetupRequest(BaseModel):
+    setup_key: str = Field(min_length=20, max_length=256)
+    username: str = Field(min_length=3, max_length=80)
+    password: str = Field(min_length=12, max_length=256)
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=80)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=12, max_length=256)
 
 
 class ContentDraftRequest(BaseModel):
@@ -67,13 +90,100 @@ class SocialAccountRequest(BaseModel):
     account_handle: str = Field(min_length=1, max_length=160)
 
 
+@app.middleware("http")
+async def security_and_auth_middleware(request: Request, call_next):
+    path = request.url.path
+    public_paths = {"/health", "/auth/setup", "/auth/login"}
+    if path not in public_paths:
+        raw_session = request.cookies.get(SESSION_COOKIE)
+        session = auth.validate_session(raw_session)
+        if not session:
+            return JSONResponse(status_code=401, content={"detail": "Login required."})
+        if request.method not in {"GET", "HEAD", "OPTIONS"}:
+            csrf = request.headers.get("X-CSRF-Token", "")
+            if not auth.validate_csrf(session, csrf):
+                return JSONResponse(status_code=403, content={"detail": "CSRF validation failed."})
+
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
+@app.post("/auth/setup", status_code=201)
+def setup_admin(request: SetupRequest):
+    try:
+        auth.setup(request.setup_key, request.username, request.password)
+        return {"success": True, "message": "Admin created. Remove ADMIN_SETUP_KEY from the server environment now, then log in."}
+    except FileExistsError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Invalid setup key.")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.post("/auth/login")
+def login(request: LoginRequest, http_request: Request, response: Response):
+    client_key = http_request.client.host if http_request.client else "unknown"
+    try:
+        result = auth.login(request.username, request.password, client_key)
+    except TimeoutError as error:
+        raise HTTPException(status_code=429, detail=str(error))
+    if not result:
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=result["session"],
+        httponly=True,
+        secure=os.getenv("COOKIE_SECURE", "true").lower() == "true",
+        samesite="strict",
+        max_age=8 * 60 * 60,
+        path="/",
+    )
+    return {"success": True, "username": result["username"], "csrf_token": result["csrf"], "expires_in_seconds": 28800}
+
+
+@app.get("/auth/me")
+def who_am_i(request: Request):
+    session = auth.validate_session(request.cookies.get(SESSION_COOKIE))
+    return {"authenticated": bool(session), "role": "owner"}
+
+
+@app.post("/auth/logout")
+def logout(request: Request, response: Response):
+    auth.logout(request.cookies.get(SESSION_COOKIE))
+    response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, samesite="strict")
+    return {"success": True, "message": "Logged out."}
+
+
+@app.post("/auth/change-password")
+def change_password(request: ChangePasswordRequest, http_request: Request, response: Response):
+    try:
+        auth.change_password(
+            http_request.cookies.get(SESSION_COOKIE),
+            request.current_password, request.new_password
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, samesite="strict")
+    return {"success": True, "message": "Password changed. All sessions were revoked; log in again."}
+
+
 @app.get("/")
 def home():
     return {
         "project": "Asfandyar AI Studio",
         "status": "running",
         "version": app.version,
-        "message": "Welcome to Asfandyar AI Studio",
+        "message": "Private owner dashboard API",
     }
 
 
@@ -86,16 +196,16 @@ def health():
 def features():
     return {
         "features": [
+            "Private single-owner login with secure sessions",
+            "Per-platform multi-account registry (5 account slots each)",
             "AI-assisted content planning",
             "Content draft management",
-            "SEO analysis",
-            "Keyword analysis",
-            "Per-platform multi-account registry (5 account slots each)",
-            "Blogger integration (credentials required)",
-            "Social publishing adapters (official API/OAuth required)",
+            "SEO and keyword analysis",
+            "Blogger integration (credentials and official API required)",
+            "Social publishing (official OAuth/API approval required)",
             "Traffic campaign planning",
             "Analytics reporting",
-            "Adsterra and Monetag tracking (manual/API data only until verified)",
+            "Adsterra and Monetag reporting (official integration required)",
         ]
     }
 
@@ -106,18 +216,14 @@ def social_platforms():
         "max_accounts_per_platform": MAX_ACCOUNTS_PER_PLATFORM,
         "platforms": sorted(SUPPORTED_PLATFORMS),
         "limits": social_accounts.account_limits(),
-        "note": "Account slots are not the same as authenticated connections. "
-                "Official OAuth setup is required to mark accounts connected.",
+        "note": "Registered account slots are not authenticated platform connections. Official OAuth is required.",
     }
 
 
 @app.get("/social/accounts")
 def list_social_accounts(platform: Optional[str] = Query(default=None)):
     try:
-        return {
-            "accounts": social_accounts.list_accounts(platform),
-            "limits": social_accounts.account_limits(),
-        }
+        return {"accounts": social_accounts.list_accounts(platform), "limits": social_accounts.account_limits()}
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
 
@@ -125,14 +231,8 @@ def list_social_accounts(platform: Optional[str] = Query(default=None)):
 @app.post("/social/accounts", status_code=201)
 def add_social_account(request: SocialAccountRequest):
     try:
-        account = social_accounts.add_account(
-            request.platform, request.account_name, request.account_handle
-        )
-        return {
-            "account": account,
-            "message": "Account slot created. Complete the platform's official "
-                       "OAuth authorization before publishing.",
-        }
+        account = social_accounts.add_account(request.platform, request.account_name, request.account_handle)
+        return {"account": account, "message": "Account slot created. Complete official OAuth before publishing."}
     except OverflowError as error:
         raise HTTPException(status_code=409, detail=str(error))
     except ValueError as error:
@@ -148,9 +248,7 @@ def delete_social_account(account_id: int):
 
 @app.post("/content", status_code=201)
 def create_content_draft(request: ContentDraftRequest):
-    draft = content_manager.create_content(
-        request.title.strip(), request.body.strip(), request.platform
-    )
+    draft = content_manager.create_content(request.title.strip(), request.body.strip(), request.platform)
     if draft is None:
         raise HTTPException(status_code=400, detail="A title and body are required.")
     return draft
@@ -166,31 +264,22 @@ def mark_content_ready(content_id: int):
     content = content_manager.publish_content(content_id)
     if content is None:
         raise HTTPException(status_code=404, detail="Content draft not found.")
-    return {
-        **content,
-        "message": "Marked ready. This endpoint does not publish externally.",
-    }
+    return {**content, "message": "Marked ready. This endpoint does not publish externally."}
 
 
 @app.post("/seo/analyze")
 def analyze_seo(request: SEORequest):
-    return seo_manager.analyze_content(
-        request.title, request.content, request.keyword
-    )
+    return seo_manager.analyze_content(request.title, request.content, request.keyword)
 
 
 @app.post("/keywords/analyze")
 def analyze_keywords(request: KeywordRequest):
-    return keyword_manager.create_keyword_report(
-        request.text, request.main_keyword
-    )
+    return keyword_manager.create_keyword_report(request.text, request.main_keyword)
 
 
 @app.post("/campaigns", status_code=201)
 def create_campaign(request: CampaignRequest):
-    return traffic_manager.create_campaign(
-        request.name, request.platform, request.website_url
-    )
+    return traffic_manager.create_campaign(request.name, request.platform, request.website_url)
 
 
 @app.get("/campaigns")
@@ -207,8 +296,4 @@ def add_analytics_record(request: AnalyticsRequest):
 @app.get("/analytics/summary")
 def analytics_summary():
     records = analytics_manager.get_report()
-    return {
-        "record_count": len(records),
-        "total_earnings": analytics_manager.total_earnings(),
-        "records": records,
-    }
+    return {"record_count": len(records), "total_earnings": analytics_manager.total_earnings(), "records": records}
