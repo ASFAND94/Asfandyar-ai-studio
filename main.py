@@ -127,7 +127,13 @@ async def security_and_auth_middleware(request: Request, call_next):
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             csrf = request.headers.get("X-CSRF-Token", "")
             if not auth.validate_csrf(session, csrf):
-                return JSONResponse(status_code=403, content={"detail": "CSRF validation failed."})
+                response = JSONResponse(status_code=403, content={"detail": "CSRF validation failed."})
+                response.headers["X-Content-Type-Options"] = "nosniff"
+                response.headers["X-Frame-Options"] = "DENY"
+                response.headers["Referrer-Policy"] = "no-referrer"
+                response.headers["Cache-Control"] = "no-store"
+                response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'"
+                return response
 
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
