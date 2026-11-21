@@ -377,7 +377,7 @@ def features():
 
 @app.get("/blogger/status")
 def blogger_status():
-    configured = bool(blogger_manager.access_token and blogger_manager.blog_id)
+    configured = blogger_manager.refresh_credentials()
     return {
         "configured": configured,
         "blog_id_configured": bool(blogger_manager.blog_id),
@@ -389,6 +389,7 @@ def blogger_status():
 
 @app.post("/content/{content_id}/publish-blogger")
 def publish_blogger_draft(content_id: int):
+    blogger_manager.refresh_credentials()
     controls = social_accounts.get_owner_controls()
     if not controls["global_publishing_enabled"]:
         raise HTTPException(status_code=403, detail="Publishing is OFF. Enable the global publishing switch first.")
