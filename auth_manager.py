@@ -6,6 +6,7 @@ passwords, setup keys, session tokens, or provider access tokens to GitHub.
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import sqlite3
 from contextlib import contextmanager
@@ -106,8 +107,8 @@ class AuthManager:
         expected = os.getenv("ADMIN_SETUP_KEY", "")
         if not expected or not hmac.compare_digest(setup_key, expected):
             raise PermissionError("Invalid one-time setup key.")
-        if len(username.strip()) < 3 or len(username) > 80:
-            raise ValueError("Username must be 3 to 80 characters.")
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{3,80}", username.strip()):
+            raise ValueError("Username must be 3-80 characters using letters, numbers, dot, underscore, or hyphen.")
         if len(password) < 12 or len(password) > 256:
             raise ValueError("Password must be 12 to 256 characters.")
         now = utc_text(utc_now())
@@ -133,8 +134,9 @@ class AuthManager:
             user = db.execute(
                 "SELECT username, password_hash FROM admin_user WHERE id = 1"
             ).fetchone()
-            valid = bool(user and hmac.compare_digest(user["username"], username)
-                         and verify_password(password, user["password_hash"]))
+            valid = bool(user and hmac.compare_digest(
+                user["username"].encode("utf-8"), username.encode("utf-8")
+            ) and verify_password(password, user["password_hash"]))
             if not valid:
                 failures = (attempt["failures"] if attempt else 0) + 1
                 locked_until = (
