@@ -4,6 +4,8 @@ import os
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -24,7 +26,7 @@ from social_account_manager import (
 app = FastAPI(
     title="Asfandyar AI Studio",
     description="Private, single-owner AI Digital Marketing Manager",
-    version="1.3.0",
+    version="1.4.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -37,6 +39,8 @@ keyword_manager = KeywordManager()
 seo_manager = SEOManager()
 traffic_manager = TrafficManager()
 social_accounts = SocialAccountManager()
+
+app.mount("/app", StaticFiles(directory=str(Path(__file__).resolve().parent / "static"), html=True), name="dashboard")
 
 
 class SetupRequest(BaseModel):
@@ -109,7 +113,8 @@ class SocialAccountRequest(BaseModel):
 async def security_and_auth_middleware(request: Request, call_next):
     path = request.url.path
     public_paths = {"/health", "/auth/status", "/auth/setup", "/auth/login"}
-    if path not in public_paths:
+    is_public_asset = path == "/app" or path.startswith("/app/")
+    if path not in public_paths and not is_public_asset:
         raw_session = request.cookies.get(SESSION_COOKIE)
         session = auth.validate_session(raw_session)
         if not session:
@@ -130,6 +135,7 @@ async def security_and_auth_middleware(request: Request, call_next):
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Cache-Control"] = "no-store"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     if request.url.scheme == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
