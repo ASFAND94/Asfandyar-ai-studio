@@ -54,7 +54,7 @@
         <h2>Register a social account</h2>
         <form id="account-form" class="grid-form">
           <label>Platform<select name="platform" required>
-            <option value="facebook">Facebook</option><option value="instagram">Instagram</option>
+            <option value="facebook_profile">Facebook Profile (personal)</option><option value="facebook_page">Facebook Page</option><option value="instagram">Instagram</option>
             <option value="tiktok">TikTok</option><option value="youtube">YouTube</option>
             <option value="x">X</option><option value="linkedin">LinkedIn</option><option value="pinterest">Pinterest</option>
           </select></label>
@@ -62,7 +62,7 @@
           <label>Username / handle<input name="account_handle" required maxlength="160"></label>
           <button type="submit">Add account slot</button>
         </form>
-        <p class="muted small">Maximum five separate account slots per platform. This does not log in to the social platform; official OAuth will be added separately.</p>
+        <p class="muted small">Maximum ten separate account slots for each platform. Facebook Profiles and Facebook Pages are managed separately. This does not log in to the social platform; official OAuth will be added separately.</p>
         <p id="account-message" class="message" role="status"></p>
       </section>
 
