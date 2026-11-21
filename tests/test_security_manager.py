@@ -32,7 +32,10 @@ class SecurityManagerTests(unittest.TestCase):
         self.assertTrue(security_manager.confirm_totp_enrollment(code))
         self.assertTrue(security_manager.mfa_enabled())
         self.assertTrue(security_manager.verify_owner_totp(code))
-        self.assertFalse(security_manager.verify_owner_totp("000000"))
+        self.assertFalse(security_manager.verify_owner_totp("000000", "test-client"))
+        for _ in range(4):
+            self.assertFalse(security_manager.verify_owner_totp("000000", "lockout-client"))
+        self.assertFalse(security_manager.verify_owner_totp(code, "lockout-client"))
         security_manager.disable_totp()
         self.assertFalse(security_manager.mfa_enabled())
 
