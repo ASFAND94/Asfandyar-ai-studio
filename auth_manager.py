@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent / "asfandyar.db"
+DB_PATH = Path(os.getenv("AUTH_DB_PATH", str(Path(__file__).resolve().parent / "asfandyar.db")))
 SESSION_COOKIE = "asfandyar_admin_session"
 SESSION_HOURS = 8
 PBKDF2_ITERATIONS = 310_000
