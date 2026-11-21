@@ -84,7 +84,11 @@ class DashboardAPISmokeTests(unittest.TestCase):
 
         settings = self.client.get("/control/settings")
         self.assertEqual(settings.status_code, 200)
-        self.assertFalse(settings.json()["global_publishing_enabled"])\n        self.assertTrue(settings.json()["require_approval"])\n\n        cannot_disable = self.client.put("/control/settings", headers=headers, json={"require_approval": False})\n        self.assertEqual(cannot_disable.status_code, 422)
+        self.assertFalse(settings.json()["global_publishing_enabled"])
+        self.assertTrue(settings.json()["require_approval"])
+
+        cannot_disable = self.client.put("/control/settings", headers=headers, json={"require_approval": False})
+        self.assertEqual(cannot_disable.status_code, 422)
 
         blocked = self.client.post("/social/accounts", json={
             "platform": "facebook",
